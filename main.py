@@ -25,7 +25,7 @@ try:
 except ImportError:
     serial = None
 
-app = typer.Typer(help="UNIVAC-IX Total Telecommunications, Cray Supercomputing, & PLC Autonomic Recovery Core Fabric")
+app = typer.Typer(help="UNIVAC-IX Sovereignty Ultimate Unified Tactical Field Recovery Engine & DB Parser")
 
 # ------------------------------------------------------------------------------
 # GLOBAL STATE & SLA REGISTERS
@@ -142,8 +142,30 @@ def inline_multicore_hex_decode(raw_hex_string: str) -> str:
     return bytes(raw_text_matrix[0, :hex_len // 2]).decode("utf-8", errors="ignore")
 
 # ------------------------------------------------------------------------------
-# MULTI-MEDIA TELEPHONY & MORSE DEMODULATION MATRIX
+# MULTI-MEDIA TELEPHONY, MORSE, & 2600HZ DEMODULATION MATRIX
 # ------------------------------------------------------------------------------
+@njit(cache=True, fastmath=True)
+def compute_goertzel_magnitude_2600hz(sample_buffer: np.ndarray, sampling_rate_hz: float) -> float:
+    """Calculates relative spectral power magnitude precisely at 2600 Hz using custom non-linear discrete filters."""
+    total_samples = sample_buffer.shape[0] # DIMENSION FIX APPLIED
+    
+    target_freq = 2600.0
+    scaling_coefficient = 2.0 * math.cos((2.0 * math.pi * target_freq) / sampling_rate_hz)
+    
+    state_delay_1 = 0.0
+    state_delay_2 = 0.0
+    
+    for i in range(total_samples):
+        current_state = sample_buffer[i] + (scaling_coefficient * state_delay_1) - state_delay_2
+        state_delay_2 = state_delay_1
+        state_delay_1 = current_state
+        
+    squared_magnitude = (state_delay_1 ** 2) + (state_delay_2 ** 2) - (state_delay_1 * state_delay_2 * scaling_coefficient)
+    if squared_magnitude < 0.0:
+        return 0.0
+        
+    return math.sqrt(squared_magnitude) / float(total_samples)
+
 @njit(cache=True, fastmath=True)
 def parse_dtmf_tone_frequencies(frequency_low: float, frequency_high: float) -> int:
     if 680.0 <= frequency_low <= 715.0:
@@ -204,7 +226,6 @@ def parallel_cpu_decode_morse_matrix(patterns: np.ndarray, lengths: np.ndarray) 
 
 @njit(cache=True, fastmath=True)
 def decode_baudot_character(baudot_bits: int) -> int:
-    """Translates a raw 5-bit historical Baudot telegraph character code into standard ASCII integer parameters."""
     if baudot_bits == 0x03: return 65  
     if baudot_bits == 0x19: return 66  
     if baudot_bits == 0x0E: return 67  
@@ -216,7 +237,6 @@ def decode_baudot_character(baudot_bits: int) -> int:
 
 @njit(cache=True, fastmath=True)
 def decode_mu_law_telephony_sample(mu_law_byte: int) -> int:
-    """Expands 8-bit non-linear G.711 telephony audio channels back into linear 16-bit PCM variables."""
     inverted_byte = ~mu_law_byte
     sign_bit = (inverted_byte >> 7) & 0x01
     exponent = (inverted_byte >> 4) & 0x07
@@ -230,7 +250,6 @@ def decode_mu_law_telephony_sample(mu_law_byte: int) -> int:
 
 @njit(parallel=True, cache=True, fastmath=True)
 def parallel_cpu_expand_pcm_stream(mu_law_buffer: np.ndarray) -> np.ndarray:
-    """Expands continuous digital phone carrier lines natively across multi-core processors at max speeds."""
     total_samples = mu_law_buffer.shape[0]
     output_linear_pcm = np.zeros(total_samples, dtype=np.int16)
     for i in prange(total_samples):
@@ -242,7 +261,6 @@ def parallel_cpu_expand_pcm_stream(mu_law_buffer: np.ndarray) -> np.ndarray:
 # ------------------------------------------------------------------------------
 @njit(cache=True, fastmath=True)
 def convert_gray_to_binary_64(gray_word: int) -> int:
-    """Decodes high-speed Cray Supercomputer Gray Code words into native standard binary formats."""
     binary_word = gray_word
     binary_word ^= (binary_word >> 32)
     binary_word ^= (binary_word >> 16)
@@ -254,7 +272,6 @@ def convert_gray_to_binary_64(gray_word: int) -> int:
 
 @njit(parallel=True, cache=True, fastmath=True)
 def parallel_cpu_decode_cray_matrix(gray_array: np.ndarray) -> np.ndarray:
-    """Processes massive arrays of Cray supercomputer telemetry channels concurrently across all CPU threads."""
     total_elements = gray_array.shape[0]
     output_binary_array = np.zeros(total_elements, dtype=np.uint64)
     for i in prange(total_elements):
@@ -367,7 +384,6 @@ def broadcast_intel_over_radio(pattern_type: str, exact_match: str) -> None:
     except Exception: pass
 
 def dispatch_to_vendor_backplane(vendor_name: str, payload_text: str) -> None:
-    """Directly routes interpreted PLC instructions into specific corporate database and assembly networks."""
     match vendor_name:
         case "ORACLE":
             print(f"  [VENDOR -> ORACLE] Injecting structured entity transaction into high-memory pooling table blocks -> {payload_text}")
@@ -437,7 +453,6 @@ def verify_live_sensor_safety_compliance(hex_address: str, raw_payload_bytes: by
 # CORE DATA ROUTER & LATENCY MANAGER
 # ------------------------------------------------------------------------------
 def evaluate_telegraphic_overrides(resolved_char: str, config_data: Dict[str, Any], visio_csv: Path, kvm_json: Path) -> None:
-    """Interceptors monitor decoded telegraph characters and automatically blast emergency override handshakes to target PLCs."""
     overrides_list = config_data.get("telegraphic_handshake_overrides", [])
     for rule in overrides_list:
         morse_pattern = rule.get("trigger_morse_pattern", 0)
@@ -459,41 +474,32 @@ def evaluate_telegraphic_overrides(resolved_char: str, config_data: Dict[str, An
         append_event_to_visio_csv(visio_csv, node_id, label, desc, "PLC_OVERRIDE", "TACTICAL_HANDSHAKE", "WIRELESS_MESH", "0x0014", "DRIVER_TELEGRAPH_POLICING", "CRITICAL_TRAP_ENGAGED", "Red")
 
 def purge_stale_hardware_channels(latency_timeout_seconds: float, visio_csv: Path) -> None:
-    """Flushes out silent, dead, or disconnected serial ports to eliminate cycle latency."""
     global _active_serial_handles, _last_channel_activity_timestamps
     current_time = time.time()
-    
     for hex_addr, last_active in list(_last_channel_activity_timestamps.items()):
         if (current_time - last_active) <= latency_timeout_seconds:
             continue
-            
         if hex_addr not in _active_serial_handles:
             continue
-            
         try:
             print(f"[PURGE ENGINE] Channel {hex_addr} exceeded silent limit window. Closing port connection.")
             _active_serial_handles[hex_addr].close()
         except Exception:
             pass
-            
         epoch_stamp = int(time.time())
         node_id = f"CHANNEL_PURGE_{epoch_stamp}_{hex_addr}"
         desc = f"Channel {hex_addr} closed due to silent timeout window breach of {latency_timeout_seconds}s."
         append_event_to_visio_csv(visio_csv, node_id, f"Purged_{hex_addr}", desc, "FABRIC_PROTECTION", "DISCONNECTED_PORT", "SERIAL", hex_addr, "NONE", "WARNING", "Orange")
-        
         del _active_serial_handles[hex_addr]
         del _last_channel_activity_timestamps[hex_addr]
 
 def process_incoming_stream(hex_address: str, raw_payload: bytes, config_data: Dict[str, Any], target_csv: Path, kvm_json: Path) -> None:
     clean_addr = hex_address.strip().lower()
-    
-    # Refresh channel latency timestamp
     _last_channel_activity_timestamps[clean_addr] = time.time()
     
     hex_payload_str = raw_payload.hex().upper()
     decoded_text = inline_multicore_hex_decode(hex_payload_str)
     
-    # 1. Heuristic Fingerprinting
     if clean_addr not in _cached_fingerprints:
         detected_driver = execute_heuristic_fingerprint(hex_payload_str)
         _cached_fingerprints[clean_addr] = detected_driver
@@ -503,7 +509,6 @@ def process_incoming_stream(hex_address: str, raw_payload: bytes, config_data: D
 
     assigned_driver = _cached_fingerprints[clean_addr]
     
-    # 2. Text-based Safety Traps
     if "CRITICAL" in decoded_text or "BREAKDOWN" in decoded_text:
         track_and_initialize_sla_timer(clean_addr)
         calculate_and_log_sla_credits(clean_addr, target_csv)
@@ -511,16 +516,13 @@ def process_incoming_stream(hex_address: str, raw_payload: bytes, config_data: D
         sys.stdout.flush()
         print(f"  [CRITICAL FAULT ESCALATION] Trap condition tripped on channel {clean_addr} // Driver: {assigned_driver}")
 
-    # 3. Hardware Boundary Traps
     verify_live_sensor_safety_compliance(clean_addr, raw_payload, target_csv)
-
     print(f"  [CORE PROCESSING] Channel: {clean_addr} | Driver: {assigned_driver} | Plaintext: {decoded_text}")
 
 # ------------------------------------------------------------------------------
 # DATABASE SQL TEXT CARVING ENGINE
 # ------------------------------------------------------------------------------
 def parse_raw_database_dump(dump_path: Path, mode: str, visio_csv: Path) -> None:
-    """Extracts data variables, column profiles, and table entities directly from Oracle or IBM DB2 test data dumps."""
     if not dump_path.exists():
         print(f"[DB CARVER FAULT] Target storage dump asset missing: '{dump_path}'", file=sys.stderr)
         return
@@ -565,7 +567,6 @@ def listen_ports_command(
     network_port: int = typer.Option(8080, help="Local socket communication port capturing aggregate virtual trunks."),
     purge_timeout: float = typer.Option(5.0, help="Latency threshold window count in seconds before dead ports are flushed.")
 ):
-    """Launches the master receiver proxy array across Fiber, Radio, Telephony, DSL, and physical Ethernet feeds."""
     global _active_serial_handles
     config_data = load_system_config(config)
     
@@ -594,10 +595,7 @@ def listen_ports_command(
 
     try:
         while True:
-            # 0. Latency Management
             purge_stale_hardware_channels(purge_timeout, visio_csv)
-            
-            # 1. Network Socket Ingestion
             try:
                 client_sock, _ = server_socket.accept()
                 client_sock.settimeout(0.1)
@@ -611,14 +609,12 @@ def listen_ports_command(
             except BlockingIOError: pass
             except Exception: pass
 
-            # 2. Hardware Serial Ingestion
             for hex_addr, serial_conn in list(_active_serial_handles.items()):
                 if not getattr(serial_conn, 'in_waiting', 0): continue
                 raw_bytes = serial_conn.read(serial_conn.in_waiting)
                 if raw_bytes:
                     process_incoming_stream(hex_addr, raw_bytes, config_data, visio_csv, kvm_json)
 
-            # 3. SLA Tracking
             for running_breach_addr in list(_active_sla_breach_timers.keys()):
                 calculate_and_log_sla_credits(running_breach_addr, visio_csv)
                 
@@ -634,17 +630,54 @@ def listen_server_command(
     visio_csv: Path = typer.Option(Path("visio_mapping.csv"), help="The target data visualizer audit log destination."),
     purge_timeout: float = typer.Option(5.0, help="The latency threshold boundary limit count in seconds before stale lines are dropped.")
 ):
-    """Launches the background persistence server tracker loop, automatically recording dead channel purges to Visio."""
     print(f"\n[SERVER] Launching multi-media infrastructure core on background channels...")
     parallel_cpu_decode_morse_matrix(np.array([12]), np.array([2]))
     try:
         while True:
-            # Continuously monitor communication lines and flush high-noise channels automatically
             purge_stale_hardware_channels(purge_timeout, visio_csv)
             time.sleep(0.1)
     except KeyboardInterrupt:
         print("\n[SERVER INTERRUPT] Halting background processes cleanly.")
         raise typer.Exit(code=0)
+
+@app.command(name="analyze-trunk-signal")
+def analyze_trunk_signal_command(
+    sampling_rate: float = typer.Option(8000.0, help="The audio carrier line baseline digitizing sampling frequency in Hertz."),
+    magnitude_threshold: float = typer.Option(15.0, help="The minimum power limit required to register a continuous tone present vector."),
+    visio_csv: Path = typer.Option(Path("visio_mapping.csv"), help="The target data visualizer spreadsheet file path destination."),
+    kvm_json: Path = typer.Option(Path("gui_state.json"), help="The active operator dashboard interface layout json configuration target.")
+):
+    """Generates a dynamic 2600 Hz tone wave block and tests the multi-core Goertzel frequency filter mechanics."""
+    print(f"\n======================================================================")
+    print(f"UNIVAC-IX IN-BAND TELEPHONY OVERRIDE DAEMON // PROTOCOL: 2600HZ SF SIGNAL")
+    print(f"======================================================================")
+    print(f"[TEST RUN] Simulating incoming idle trunk tone frequency line array parameters...")
+    
+    sample_size = 400
+    time_steps = np.arange(sample_size) / sampling_rate
+    mock_audio_wave = 50.0 * np.sin(2.0 * np.pi * 2600.0 * time_steps) + np.random.normal(0, 2.0, sample_size)
+    
+    spectral_magnitude = compute_goertzel_magnitude_2600hz(mock_audio_wave, sampling_rate)
+    print(f"[ANALYSIS COMPLETE] Isolated relative spectral magnitude: {spectral_magnitude:.4f}")
+    
+    if spectral_magnitude < magnitude_threshold:
+        print("  -> [NOMINAL] Line carrier tracking normal conversation blocks or active data. Loop stable.\n")
+        return
+        
+    sys.stdout.write("\a\a\a\a")
+    sys.stdout.flush()
+    
+    print("\n" + "!" * 80)
+    print(f" !!! TACTICAL ALERT: 2600 HZ IN-BAND TRUNK DISCONNECT CARRIER DETECTED !!!")
+    print(f" -> LINE HARDWARE INTEGRITY STATUS: DISCONNECTED / IDLE / GRABBED")
+    print(f" -> EVAC PROTOCOL ACTION: AUTONOMIC FALLBACK INTERRUPT ENFORCED")
+    print("!" * 80 + "\n")
+    
+    update_kvm_json_state(kvm_json, "TELEPHONY_TRUNK_01_STATUS", "DISCONNECTED_2600HZ_SF", "GOERTZEL_SIGNAL_PROCESSOR")
+    epoch_stamp = int(time.time())
+    node_id = f"TRUNK_DISCONNECT_{epoch_stamp}_CH01"
+    desc = f"In-band 2600 Hz Single Frequency tone verified at magnitude {spectral_magnitude:.2f}. Trunk drop executed."
+    append_event_to_visio_csv(visio_csv, node_id, "Trunk_Disconnect_Ch1", desc, "TELEPHONY_GUARD", "TRUNK_LINE", "ADSL_METRIC", "0x0013", "DRIVER_TELEPHONY_SF", "CRITICAL_TRAP_ENGAGED", "DarkRed")
 
 @app.command(name="parse-dialup-stream")
 def parse_dialup_stream_command(
@@ -652,7 +685,6 @@ def parse_dialup_stream_command(
     high_hz: float = typer.Argument(..., help="Extracted high-group tone carrier frequency value in Hertz."),
     vendor_target: str = typer.Option("BRADLEY", help="Target enterprise automation network infrastructure (ORACLE, IBM, BRADLEY, HBE).")
 ):
-    """Processes telephony dial-up tone frequencies via Numba parallel matrices and hot-injects results to active vendor PLCs."""
     print(f"\n======================================================================")
     print(f"UNIVAC-IX TELEPHONY CARRIER DEMODULATION // INTERFACE: ADSL / CAT6 / NEXT-GEN")
     print(f"======================================================================")
@@ -669,7 +701,6 @@ def parse_dialup_stream_command(
         
     resolved_char = chr(character_byte)
     print(f"[DEMODULATION SUCCESS] Extracted clean data byte character out of audio carrier wave: '{resolved_char}'")
-    
     dispatch_to_vendor_backplane(vendor_target.strip().upper(), f"CMD_TOKEN_{resolved_char}")
     print()
 
@@ -681,18 +712,15 @@ def demodulate_telegraph_command(
     visio_csv: Path = typer.Option(Path("visio_mapping.csv"), help="The target data visualizer audit sheet path."),
     kvm_json: Path = typer.Option(Path("gui_state.json"), help="The active operator console dashboard json template file.")
 ):
-    """Demodulates historical Morse/Baudot telegraph signals, running real-time autonomic handshake overrides on PLC layers on key matches."""
     config_data = load_system_config(config)
     
     if pattern_len == 5:
-        # Process historical printing telegraph Baudot streams
         ascii_code = decode_baudot_character(bit_pattern)
         resolved_char = chr(ascii_code)
         print(f"\n[TELEGRAPH DEMODULATION] Decoded 5-Bit Baudot Printing Stream character: '{resolved_char}'")
         evaluate_telegraphic_overrides(resolved_char, config_data, visio_csv, kvm_json)
         return
         
-    # Process standard variable-length continuous wave Morse code patterns
     pat_arr = np.array([bit_pattern], dtype=np.int32)
     len_arr = np.array([pattern_len], dtype=np.int32)
     decoded_codes = parallel_cpu_decode_morse_matrix(pat_arr, len_arr)
@@ -705,7 +733,6 @@ def demodulate_telegraph_command(
 def process_cray_telemetry_command(
     gray_code_hex: str = typer.Argument(..., help="The raw 64-bit Gray code telemetry word pulled from the supercomputer backplane (e.g. 7FFFFFFFFFFFFFFF).")
 ):
-    """Processes raw Cray Supercomputer Gray code matrices across multi-core systems with cached instructions."""
     raw_gray_word = np.uint64(int(gray_code_hex.strip(), 16))
     gray_input_matrix = np.array([raw_gray_word], dtype=np.uint64)
     
@@ -723,7 +750,6 @@ def process_cray_telemetry_command(
 def expand_telephony_audio_command(
     mu_law_hex_byte: str = typer.Argument(..., help="The raw non-linear G.711 telephony audio sample byte (e.g. FF).")
 ):
-    """Expands incoming μ-Law telephony digital telephone line streams into linear variables for signal matching."""
     raw_byte_val = int(mu_law_hex_byte.strip(), 16)
     audio_buffer = np.array([raw_byte_val], dtype=np.uint8)
     linear_pcm_output = parallel_cpu_expand_pcm_stream(audio_buffer)[0]
@@ -738,7 +764,6 @@ def carve_db_dump_command(
     engine_mode: str = typer.Option("ORACLE", help="The database source format configuration layout (ORACLE, IBM_DB2)."),
     visio_csv: Path = typer.Option(Path("visio_mapping.csv"), help="The target Data Visualizer flowchart file to register hits into.")
 ):
-    """Parses raw text SQL dumps from Oracle or IBM DB2 databases and automatically outputs tracking nodes to Visio schemas."""
     parse_raw_database_dump(dump_file, engine_mode, visio_csv)
 
 @app.command(name="recover-storage")
@@ -748,18 +773,13 @@ def recover_storage_command(
     encoding: str = typer.Option("FIELDATA", help="The source encoding structure specification (FIELDATA, EBCDIC)."),
     visio_csv: Path = typer.Option(Path("visio_mapping.csv"), help="The target Data Visualizer spreadsheet log destination path.")
 ):
-    """Carves legacy hardware dumps using either UNIVAC 6-bit FIELDATA or IBM 8-bit EBCDIC conversion layouts."""
     if not raw_dump.exists():
         raise typer.Exit(code=1)
         
     raw_bytes = np.fromfile(raw_dump, dtype=np.uint8)
-    
-    if encoding.strip().upper() == "FIELDATA":
-        processed = parallel_cpu_carve_fieldata(raw_bytes)
-    elif encoding.strip().upper() == "EBCDIC":
-        processed = parallel_cpu_carve_ebcdic(raw_bytes)
-    else:
-        processed = raw_bytes
+    if encoding.strip().upper() == "FIELDATA": processed = parallel_cpu_carve_fieldata(raw_bytes)
+    elif encoding.strip().upper() == "EBCDIC": processed = parallel_cpu_carve_ebcdic(raw_bytes)
+    else: processed = raw_bytes
         
     with open(output_file, "w", encoding="utf-8") as out:
         out.write(bytes(processed).decode("ascii", errors="ignore"))
@@ -772,9 +792,7 @@ def compute_led_opto_analog_command(
     lux_intensity: float = typer.Argument(..., help="Measured luminous output intensity driving the opto-receiver sensor element."),
     sensor_gain_db: float = typer.Option(12.0, help="Hardware operational amplifier gain calibration value in decibels.")
 ):
-    """Executes high-speed opto-electronic calculations using LED light intensity values as input variables."""
     calculated_voltage = compute_opto_analog_led_voltage(lux_intensity, sensor_gain_db)
-    
     print(f"\n======================================================================")
     print(f"UNIVAC LED VACUUM TUBE EMULATION OPTIC CALCULATION")
     print(f"======================================================================")
