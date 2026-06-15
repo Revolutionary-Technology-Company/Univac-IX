@@ -1,6 +1,6 @@
 # File Name: wave_matrix_processor.py
 # Location: /src/hydrodynamics/
-# Subsystem: Autoregressive Seakeeping & Ventilation Processor
+# Subsystem: Autoregressive Seakeeping & Ventilation Processor UPDATED
 # Copyright (c) 2026 Revolutionary Technology
 
 import math
