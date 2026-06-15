@@ -25,7 +25,7 @@ try:
 except ImportError:
     serial = None
 
-app = typer.Typer(help="UNIVAC-IX Sovereignty Ultimate Unified Tactical Field Recovery Engine")
+app = typer.Typer(help="UNIVAC-IX Sovereignty Ultimate Unified Tactical Field Recovery Engine & DB Parser")
 
 # ------------------------------------------------------------------------------
 # GLOBAL STATE & SLA REGISTERS
@@ -142,40 +142,31 @@ def inline_multicore_hex_decode(raw_hex_string: str) -> str:
     return bytes(raw_text_matrix[0, :hex_len // 2]).decode("utf-8", errors="ignore")
 
 # ------------------------------------------------------------------------------
-# MULTI-MEDIA TELEPHONY DEMODULATION MATRIX
+# MULTI-MEDIA TELEPHONY & MORSE DEMODULATION MATRIX
 # ------------------------------------------------------------------------------
 @njit(cache=True, fastmath=True)
 def parse_dtmf_tone_frequencies(frequency_low: float, frequency_high: float) -> int:
-    """Decodes standard telephone/telegraph dual-tone multi-frequency matrices into ASCII character values."""
-    # Match Row 1 (697 Hz)
     if 680.0 <= frequency_low <= 715.0:
-        if 1190.0 <= frequency_high <= 1225.0: return 49  # '1'
-        if 1315.0 <= frequency_high <= 1355.0: return 50  # '2'
-        if 1455.0 <= frequency_high <= 1495.0: return 51  # '3'
-        if 1610.0 <= frequency_high <= 1655.0: return 65  # 'A'
-        
-    # Match Row 2 (770 Hz)
+        if 1190.0 <= frequency_high <= 1225.0: return 49  
+        if 1315.0 <= frequency_high <= 1355.0: return 50  
+        if 1455.0 <= frequency_high <= 1495.0: return 51  
+        if 1610.0 <= frequency_high <= 1655.0: return 65  
     if 750.0 <= frequency_low <= 790.0:
-        if 1190.0 <= frequency_high <= 1225.0: return 52  # '4'
-        if 1315.0 <= frequency_high <= 1355.0: return 53  # '5'
-        if 1455.0 <= frequency_high <= 1495.0: return 54  # '6'
-        if 1610.0 <= frequency_high <= 1655.0: return 66  # 'B'
-        
-    # Match Row 3 (852 Hz)
+        if 1190.0 <= frequency_high <= 1225.0: return 52  
+        if 1315.0 <= frequency_high <= 1355.0: return 53  
+        if 1455.0 <= frequency_high <= 1495.0: return 54  
+        if 1610.0 <= frequency_high <= 1655.0: return 66  
     if 835.0 <= frequency_low <= 870.0:
-        if 1190.0 <= frequency_high <= 1225.0: return 55  # '7'
-        if 1315.0 <= frequency_high <= 1355.0: return 56  # '8'
-        if 1455.0 <= frequency_high <= 1495.0: return 57  # '9'
-        if 1610.0 <= frequency_high <= 1655.0: return 67  # 'C'
-        
-    # Match Row 4 (941 Hz)
+        if 1190.0 <= frequency_high <= 1225.0: return 55  
+        if 1315.0 <= frequency_high <= 1355.0: return 56  
+        if 1455.0 <= frequency_high <= 1495.0: return 57  
+        if 1610.0 <= frequency_high <= 1655.0: return 67  
     if 920.0 <= frequency_low <= 960.0:
-        if 1190.0 <= frequency_high <= 1225.0: return 42  # '*'
-        if 1315.0 <= frequency_high <= 1355.0: return 48  # '0'
-        if 1455.0 <= frequency_high <= 1495.0: return 35  # '#'
-        if 1610.0 <= frequency_high <= 1655.0: return 68  # 'D'
-        
-    return 0  # Frame match deferred
+        if 1190.0 <= frequency_high <= 1225.0: return 42  
+        if 1315.0 <= frequency_high <= 1355.0: return 48  
+        if 1455.0 <= frequency_high <= 1495.0: return 35  
+        if 1610.0 <= frequency_high <= 1655.0: return 68  
+    return 0  
 
 @njit(parallel=True, cache=True, fastmath=True)
 def parallel_cpu_decode_tone_matrix(low_freqs: np.ndarray, high_freqs: np.ndarray) -> np.ndarray:
@@ -184,6 +175,34 @@ def parallel_cpu_decode_tone_matrix(low_freqs: np.ndarray, high_freqs: np.ndarra
     for i in prange(total_elements):
         output_chars_matrix[i] = parse_dtmf_tone_frequencies(low_freqs[i], high_freqs[i])
     return output_chars_matrix
+
+@njit(cache=True, fastmath=True)
+def parse_morse_symbol_to_ascii(bit_pattern: int, pattern_len: int) -> int:
+    """Decodes compressed binary dot-dash sequences into uppercase alphanumeric characters."""
+    if pattern_len == 2:
+        if bit_pattern == 12: return 65  
+        if bit_pattern == 21: return 78  
+        if bit_pattern == 22: return 77  
+        if bit_pattern == 11: return 73  
+    if pattern_len == 3:
+        if bit_pattern == 211: return 68 
+        if bit_pattern == 111: return 83 
+        if bit_pattern == 222: return 79 
+        if bit_pattern == 112: return 85 
+    if pattern_len == 4:
+        if bit_pattern == 2121: return 67 
+        if bit_pattern == 1111: return 72 
+        if bit_pattern == 1222: return 74 
+    return 63
+
+@njit(parallel=True, cache=True, fastmath=True)
+def parallel_cpu_decode_morse_matrix(patterns: np.ndarray, lengths: np.ndarray) -> np.ndarray:
+    """Processes arrays of telegraph wave carriers concurrently using all host execution CPU threads."""
+    total_elements = patterns.shape[0]
+    output_chars = np.zeros(total_elements, dtype=np.uint8)
+    for i in prange(total_elements):
+        output_chars[i] = parse_morse_symbol_to_ascii(patterns[i], lengths[i])
+    return output_chars
 
 def dispatch_to_vendor_backplane(vendor_name: str, payload_text: str) -> None:
     match vendor_name:
@@ -359,8 +378,8 @@ def verify_live_sensor_safety_compliance(hex_address: str, raw_payload_bytes: by
 # ------------------------------------------------------------------------------
 # CORE DATA ROUTER & LATENCY MANAGER
 # ------------------------------------------------------------------------------
-def purge_stale_hardware_channels(latency_timeout_seconds: float) -> None:
-    """Flushes out silent, dead, or disconnected serial ports to eliminate cycle latency in heavy industrial noise floors."""
+def purge_stale_hardware_channels(latency_timeout_seconds: float, visio_csv: Path) -> None:
+    """Flushes out silent, dead, or disconnected serial ports to eliminate cycle latency."""
     global _active_serial_handles, _last_channel_activity_timestamps
     current_time = time.time()
     
@@ -372,11 +391,16 @@ def purge_stale_hardware_channels(latency_timeout_seconds: float) -> None:
             continue
             
         try:
-            print(f"[LATENCY PURGE] Channel {hex_addr} exceeded silent limit window. Closing connection to minimize loop delay.")
+            print(f"[PURGE ENGINE] Channel {hex_addr} exceeded silent limit window. Closing port connection.")
             _active_serial_handles[hex_addr].close()
         except Exception:
             pass
             
+        epoch_stamp = int(time.time())
+        node_id = f"CHANNEL_PURGE_{epoch_stamp}_{hex_addr}"
+        desc = f"Channel {hex_addr} closed due to silent timeout window breach of {latency_timeout_seconds}s."
+        append_event_to_visio_csv(visio_csv, node_id, f"Purged_{hex_addr}", desc, "FABRIC_PROTECTION", "DISCONNECTED_PORT", "SERIAL", hex_addr, "NONE", "WARNING", "Orange")
+        
         del _active_serial_handles[hex_addr]
         del _last_channel_activity_timestamps[hex_addr]
 
@@ -411,6 +435,37 @@ def process_incoming_stream(hex_address: str, raw_payload: bytes, config_data: D
     verify_live_sensor_safety_compliance(clean_addr, raw_payload, target_csv)
 
     print(f"  [CORE PROCESSING] Channel: {clean_addr} | Driver: {assigned_driver} | Plaintext: {decoded_text}")
+
+# ------------------------------------------------------------------------------
+# DATABASE SQL TEXT CARVING ENGINE
+# ------------------------------------------------------------------------------
+def parse_raw_database_dump(dump_path: Path, mode: str, visio_csv: Path) -> None:
+    """Extracts data variables, column profiles, and table entities directly from Oracle or IBM DB2 test data dumps."""
+    if not dump_path.exists():
+        print(f"[DB CARVER FAULT] Target storage dump asset missing: '{dump_path}'", file=sys.stderr)
+        return
+        
+    print(f"[DB CARVER] Opening {mode.upper()} binary text image partition target...")
+    with open(dump_path, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+        
+    regex_pattern = r"INSERT\s+INTO\s+([A-Za-z0-9_]+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)"
+    if mode.upper() == "IBM_DB2":
+        regex_pattern = r"CREATE\s+TABLE\s+([A-Za-z0-9_]+)\s*\(([^;]+)\)"
+        
+    compiled_regex = re.compile(regex_pattern, re.IGNORECASE)
+    matches_found = compiled_regex.findall(content)
+    total_records = len(matches_found)
+    
+    print(f"[DB CARVER SUCCESS] Isolated {total_records} structural data records from memory image files.")
+    
+    for idx, match_item in enumerate(matches_found):
+        table_name = match_item[0] if isinstance(match_item, tuple) else match_item
+        print(f"  -> CARVED ENTITY [{idx + 1}]: Target Table = {table_name}")
+        epoch_stamp = int(time.time())
+        node_id = f"DB_CARVE_{epoch_stamp}_{idx}"
+        desc = f"Carved table entity schema {table_name} from raw text block allocations."
+        append_event_to_visio_csv(visio_csv, node_id, f"DB_{table_name}", desc, "STORAGE_RECOVERY", "DATABASE_SCHEMATIC", "FILE", "0x00A9", "DRIVER_MAINFRAME_RECOVERY", "SALVAGED_OK", "Purple")
 
 # ------------------------------------------------------------------------------
 # TYPER COMMANDS
@@ -460,7 +515,7 @@ def listen_ports_command(
     try:
         while True:
             # 0. Latency Management
-            purge_stale_hardware_channels(purge_timeout)
+            purge_stale_hardware_channels(purge_timeout, visio_csv)
             
             # 1. Network Socket Ingestion
             try:
@@ -493,6 +548,24 @@ def listen_ports_command(
         server_socket.close()
         raise typer.Exit(code=0)
 
+@app.command(name="listen-server")
+def listen_server_command(
+    config: Path = typer.Option(Path("config.yaml"), help="Path to the master system configuration profile."),
+    visio_csv: Path = typer.Option(Path("visio_mapping.csv"), help="The target data visualizer audit log destination."),
+    purge_timeout: float = typer.Option(5.0, help="The latency threshold boundary limit count in seconds before stale lines are dropped.")
+):
+    """Launches the background persistence server tracker loop, automatically recording dead channel purges to Visio."""
+    print(f"\n[SERVER] Launching multi-media infrastructure core on background channels...")
+    parallel_cpu_decode_morse_matrix(np.array([12]), np.array([2]))
+    try:
+        while True:
+            # Continuously monitor communication lines and flush high-noise channels automatically
+            purge_stale_hardware_channels(purge_timeout, visio_csv)
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("\n[SERVER INTERRUPT] Halting background processes cleanly.")
+        raise typer.Exit(code=0)
+
 @app.command(name="parse-dialup-stream")
 def parse_dialup_stream_command(
     low_hz: float = typer.Argument(..., help="Extracted low-group tone carrier frequency value in Hertz."),
@@ -519,6 +592,33 @@ def parse_dialup_stream_command(
     
     dispatch_to_vendor_backplane(vendor_target.strip().upper(), f"CMD_TOKEN_{resolved_char}")
     print()
+
+@app.command(name="decode-morse-stream")
+def decode_morse_stream_command(
+    bit_pattern: int = typer.Argument(..., help="Binary sequence array encoding for the Morse character (1 = Dit, 2 = Dah)."),
+    pattern_len: int = typer.Argument(..., help="The explicit element length step count of the token sequence group.")
+):
+    """Processes complex variable-length Morse telegraph strings via Numba parallel translation matrices."""
+    pat_arr = np.array([bit_pattern], dtype=np.int32)
+    len_arr = np.array([pattern_len], dtype=np.int32)
+    decoded_codes = parallel_cpu_decode_morse_matrix(pat_arr, len_arr)
+    
+    resolved_character = chr(decoded_codes[0])
+    
+    print(f"\n======================================================================")
+    print(f"UNIVAC-IX TELEGRAPH MORSE CONTINUOUS WAVE DEMODULATION // LINK: MIL-STD-1397")
+    print(f"======================================================================")
+    print(f"  -> Input Binary Element Code Block: {bit_pattern}")
+    print(f"  -> Extracted Plaintext Character:   '{resolved_character}'\n")
+
+@app.command(name="carve-db-dump")
+def carve_db_dump_command(
+    dump_file: Path = typer.Argument(..., help="Path to the raw textual database test data dump asset file."),
+    engine_mode: str = typer.Option("ORACLE", help="The database source format configuration layout (ORACLE, IBM_DB2)."),
+    visio_csv: Path = typer.Option(Path("visio_mapping.csv"), help="The target Data Visualizer flowchart file to register hits into.")
+):
+    """Parses raw text SQL dumps from Oracle or IBM DB2 databases and automatically outputs tracking nodes to Visio schemas."""
+    parse_raw_database_dump(dump_file, engine_mode, visio_csv)
 
 @app.command(name="recover-storage")
 def recover_storage_command(
@@ -662,6 +762,18 @@ def analyze_rotary_balance_command(mass_nodes_count: int = typer.Option(5)):
     if counter_angle_deg < 0.0: counter_angle_deg += 360.0
     print(f"  -> Net Unmitigated Mechanical Centrifugal Imbalance: {net_imbalance_magnitude:.4f} kg·m")
     print(f"  -> Calculated Counterweight Vector Correction Angle: {counter_angle_deg:.2f}° Heading")
+
+@app.command(name="calculate-linkage-torque")
+def calculate_linkage_torque_command(
+    force_newtons: float = typer.Argument(...),
+    arm_length_meters: float = typer.Argument(...),
+    angle_degrees: float = typer.Option(90.0)
+):
+    if force_newtons <= 0.0 or arm_length_meters <= 0.0:
+        print("[INPUT ERROR] Valid structural bounds required.", file=sys.stderr)
+        raise typer.Exit(code=1)
+    computed_torque_nm = evaluate_rotational_torque_nm(force_newtons, arm_length_meters, angle_degrees)
+    print(f"  -> NET CALCULATED SHAFTS TORQUE OUTPUT: {computed_torque_nm:.2f} N·m\n")
 
 @app.command(name="scan-recovered-data")
 def scan_recovered_data_command(
