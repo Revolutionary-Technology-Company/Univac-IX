@@ -505,3 +505,35 @@ database_dumps:
   ibm_db2:
     schema_regex: "CREATE\\s+TABLE\\s+([A-Za-z0-9_]+)\\s*\\(([^;]+)\\)"
     ebcdic_to_ascii_forced: true
+
+system:
+  identity: "UNIVAC-IX-SUPER-FABRIC"
+  default_word_size: 64 # Advanced Cray/UNIVAC Hybrid Processing Width
+  operation_mode: "TOTAL_INFRASTRUCTURE_RECOVERY"
+
+telegraph_telephony_matrix:
+  baudot_ita2_set: {
+    0x03: "A", 0x19: "B", 0x0E: "C", 0x09: "D", 0x01: "E", 0x0D: "F", 0x1A: "G", 
+    0x14: "H", 0x06: "I", 0x0B: "J", 0x0F: "K", 0x12: "L", 0x1C: "M", 0x0C: "N", 
+    0x18: "O", 0x16: "P", 0x17: "Q", 0x0A: "R", 0x05: "S", 0x10: "T", 0x07: "U", 
+    0x1E: "V", 0x13: "W", 0x1D: "X", 0x15: "Y", 0x11: "Z", 0x04: " ", 0x08: "\n"
+  }
+  pcm_companding: "MU_LAW"
+  dtmf_twist_tolerance_db: 4.0
+
+supercomputing_profiles:
+  cray_xmp_ymp:
+    word_width_bits: 64
+    gray_code_alignment: true
+    vector_registers_count: 8
+    parity_mask: "0x7FFFFFFFFFFFFFFF"
+
+telegraphic_handshake_overrides:
+  - trigger_morse_pattern: 222 # 222 = --- -> 'O' (Emergency Operational Trap)
+    reply_hex_vector: "AA55FFFF0000"
+    target_plc: "ALLEN_BRADLEY_CIP_01"
+    label: "RADIO_OVER_WIRE_EMERGENCY_RESET"
+  - trigger_morse_pattern: 111 # 111 = ... -> 'S' (SOS Facility Breach Interrupt)
+    reply_hex_vector: "DEADBEEF0101"
+    target_plc: "SIEMENS_STEP7_BUS"
+    label: "MASTER_HALON_SUPPRESSION_ENGAGE"
