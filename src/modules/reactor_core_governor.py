@@ -1,6 +1,6 @@
 # File Name: reactor_core_governor.py
 # Location: /src/modules/
-# Subsystem: Thermal Yield & SCRAM Autonomic Governor
+# Subsystem: Thermal Yield & SCRAM Autonomic Governor UPDATED
 # Copyright (c) 2026 Revolutionary Technology
 
 import time
