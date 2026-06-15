@@ -9,11 +9,19 @@ import typer
 import numpy as np
 from numba import njit, prange
 
-app = typer.Typer(help="UNIVAC-IX Tactical Dual-Way Radio Mesh, Live Auditing & Live Boundary Guard Fabric")
+try:
+    import serial
+except ImportError:
+    serial = None
+
+app = typer.Typer(help="UNIVAC-IX Tactical Dual-Way Radio Mesh, Live Boundary Guard & Telemetry Alert Fabric")
+
+# Global handle storage for open physical radio transmitter lines
+_active_serial_handles: Dict[str, Any] = {}
 
 # Global register files mapping threshold boundaries read from documents
 _safety_threshold_registers: Dict[str, Dict[str, int]] = {
-    "0x0037": {"upper_limit": 200, "lower_limit": 10}, # Pre-cached example from Environment-Safety-Monitor
+    "0x0037": {"upper_limit": 200, "lower_limit": 10},
     "0x0038": {"upper_limit": 250, "lower_limit": 18}
 }
 
@@ -71,62 +79,85 @@ def inline_multicore_hex_decode(raw_hex_string: str) -> str:
     return bytes(raw_text_matrix[0, :hex_len // 2]).decode("utf-8", errors="ignore")
 
 
-# --- Automated Operational Safeguard Enforcement Matrix ---
+# --- Automated Over-The-Air Radio Alert Broadcasting Engine ---
+
+def dispatch_emergency_radio_broadcast(hex_address: str, violation_type: str, threshold_val: int, current_val: int) -> None:
+    """Formats a compact emergency message and transmits it over long-range radio hardware on Port 20."""
+    radio_tx_addr = "0x0014" # Hardcoded route parameter matching PORT_20 RADIO_TRANS_TX allocation
+    
+    if radio_tx_addr not in _active_serial_handles:
+        print(f"  [RADIO MESH DEFERRED] Cannot broadcast alert. Radio line {radio_tx_addr} is currently offline.", file=sys.stderr)
+        return
+
+    timestamp = time.strftime("%H:%M:%S")
+    # Compact, parsing-friendly text structure for emergency field paging hardware or satellite modems
+    radio_message = f"[UNIVAC-BREACH] {timestamp} | CH:{hex_address} | TYPE:{violation_type} | LIMIT:{threshold_val} | VAL:{current_val} // EVAC_ERR"
+    
+    # Fast encoding conversion to binary byte vector matrices
+    hex_payload = radio_message.encode("utf-8").hex().upper()
+    raw_packet_bytes = bytes.fromhex(hex_payload)
+    
+    try:
+        _active_serial_handles[radio_tx_addr].write(raw_packet_bytes)
+        print(f"  [RADIO MESH BROADCAST] Emergency warning dispatched across wireless network drops.")
+        print(f"    -> Message Payload: {radio_message}")
+    except Exception as tx_err:
+        print(f"  [RADIO MESH FAULT] Signal drop on physical radio transmission array: {tx_err}", file=sys.stderr)
+
+
+# --- Automated Real-time Boundary Guard Interceptor ---
 
 def verify_live_sensor_safety_compliance(hex_address: str, raw_payload_bytes: bytes) -> None:
-    """Interceptors evaluate numerical sensor contents against compliance guidelines in real time."""
+    """Evaluates numerical sensor inputs against compliance guidelines and triggers autonomous radio alerts on breaches."""
     clean_addr = hex_address.strip().lower()
     
-    # 1. Guard against unmonitored channels that lack active guideline constraints
     if clean_addr not in _safety_threshold_registers:
         return
-        
-    # 2. Guard against empty data payloads to prevent buffer index execution crashes
     if len(raw_payload_bytes) == 0:
         return
         
-    # Interpret the final byte of the incoming stream as the active numerical measurement value
     measured_integer_value = int(raw_payload_bytes[-1])
     bounds = _safety_threshold_registers[clean_addr]
     
     max_boundary = bounds.get("upper_limit", 255)
     min_boundary = bounds.get("lower_limit", 0)
     
-    # 3. Check for upper limit threshold violations
+    # 1. Process Upper Limit Violation
     if measured_integer_value > max_boundary:
-        sys.stdout.write("\a\a\a") # Fire audio terminal alarm notifications
+        sys.stdout.write("\a\a\a")
         sys.stdout.flush()
         print("\n" + "!" * 80)
         print(f" !!! CRITICAL HARDWARE COMPLIANCE BREACH: UPPER SAFETY BOUNDS EXCEEDED !!!")
-        print(f" -> SENSOR ROUTE CHANNEL: {clean_addr}")
-        print(f" -> REGISTERED MAXIMUM:   {max_boundary}")
-        print(f" -> REAL-TIME LIVE READ:  {measured_integer_value} !!! TRIPPED !!!")
-        print("!" * 80 + "\n")
+        print(f" -> SENSOR ROUTE CHANNEL: {clean_addr} | Real-Time Live Read: {measured_integer_value} (MAX: {max_boundary})")
+        print("!" * 80)
+        
+        # Deploy immediate autonomic over-the-air radio warning message
+        dispatch_emergency_radio_broadcast(clean_addr, "MAX_EXCEEDED", max_boundary, measured_integer_value)
+        print()
         return
         
-    # 4. Check for lower limit threshold violations
+    # 2. Process Lower Limit Violation
     if measured_integer_value < min_boundary:
         sys.stdout.write("\a\a\a")
         sys.stdout.flush()
         print("\n" + "!" * 80)
         print(f" !!! CRITICAL HARDWARE COMPLIANCE BREACH: LOWER SAFETY BOUNDS EXCEEDED !!!")
-        print(f" -> SENSOR ROUTE CHANNEL: {clean_addr}")
-        print(f" -> REGISTERED MINIMUM:   {min_boundary}")
-        print(f" -> REAL-TIME LIVE READ:  {measured_integer_value} !!! TRIPPED !!!")
-        print("!" * 80 + "\n")
+        print(f" -> SENSOR ROUTE CHANNEL: {clean_addr} | Real-Time Live Read: {measured_integer_value} (MIN: {min_boundary})")
+        print("!" * 80)
+        
+        # Deploy immediate autonomic over-the-air radio warning message
+        dispatch_emergency_radio_broadcast(clean_addr, "MIN_EXCEEDED", min_boundary, measured_integer_value)
+        print()
         return
 
 
-# --- Core Operational Input Processing Layer ---
+# --- Core Operational Signal Router ---
 
 def process_incoming_stream(hex_address: str, raw_payload: bytes, config_data: Dict[str, Any], target_csv: Path) -> None:
     clean_addr = hex_address.strip().lower()
     hex_payload_str = raw_payload.hex().upper()
     
-    # Run immediate real-time compliance tracking verification against our guideline limits
     verify_live_sensor_safety_compliance(clean_addr, raw_payload)
-
-    # Standard routing loops for standard peripheral modules continue below
     decoded_readable_text = inline_multicore_hex_decode(hex_payload_str)
     print(f"  [CORE PROCESSING] Address: {clean_addr} | Stream: {hex_payload_str} | Ascii: {decoded_readable_text}")
 
@@ -147,8 +178,16 @@ def route_signal_command(
     config: Path = typer.Option(Path("config.yaml"), help="Path to the node configuration registry file."),
     visio_csv: Path = typer.Option(Path("visio_mapping.csv"), help="The target data visualizer spreadsheet to write audits to.")
 ):
-    """Manually routes an input frame payload to verify compliance policing engine reactions."""
+    """Manually routes an input frame payload to verify compliance and radio alerting capabilities."""
+    global _active_serial_handles
     config_data = load_system_config(config)
+    
+    # Stub: Mount a virtual dummy handle to represent the physical radio hardware interface for testing if missing
+    if "0x0014" not in _active_serial_handles:
+        class DummySerial:
+            def write(self, data): pass
+        _active_serial_handles["0x0014"] = DummySerial()
+        
     raw_data = bytes.fromhex(payload.strip().upper())
     process_incoming_stream(hex_address, raw_data, config_data, visio_csv)
 
