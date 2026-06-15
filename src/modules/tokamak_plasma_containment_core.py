@@ -1,6 +1,6 @@
 # File Name: tokamak_plasma_containment_core.py
 # Location: /src/modules/
-# Subsystem: Tokamak Fusion Reactor & Magnetic Confinement Core
+# Subsystem: Tokamak Fusion Reactor & Magnetic Confinement Core UPDATE
 # Copyright (c) 2026 Revolutionary Technology
 
 import time
