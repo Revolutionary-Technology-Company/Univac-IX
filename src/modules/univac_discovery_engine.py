@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """
 UNIVAC-IX Network Discovery, Deep Hardware Profiling & Integrity Core
-1. Sweeps local and surrounding subnets via multi-threaded connection maps.
-2. Safe banner-grabs and fingerprints third-party automation systems (PLCs, Bridges).
-3. Archives structured JSON hardware profiles inside a local Node Library directory.
-4. Performs background ICMP ping validation loops to audit keep-alive matrices.
-5. Reconciles and syncs discovered infrastructure into the Master vCard database.
+Location: src/modules/univac_discovery_engine.py
 """
 
 import os
@@ -18,26 +14,21 @@ import time
 import subprocess
 from pathlib import Path
 
-# --- CONFIGURATION WORKSPACE PATHS ---
-BASE_DIR = Path(__file__).resolve().parent
+# --- LOCKED RELATIVE WORKSPACE PATHS ---
+# Resolves from src/modules/ up two levels to the Repository Root Folder
+BASE_DIR = Path(__file__).resolve().parent.parent.parent  
 MASTER_VCF = BASE_DIR / "master_database.vcf"
 LIBRARY_DIR = BASE_DIR / "storage_pipeline" / "hardware_node_library"
+TEMPLATES_ROOT = BASE_DIR / "storage_pipeline" / "gantry_site_templates"
 
 # Ensure all system pipeline target folders exist cleanly
 LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# -------------------------------------------------------------
-# CORE MODULE 1: DEEP HARDWARE INTERROGATION & LIBRARIES
-# -------------------------------------------------------------
-
 class DeepHardwareProfiler:
     @staticmethod
     def interrogate_device(ip: str, port: int) -> dict:
-        """
-        Connects safely to open industrial and telecom channels to extract 
-        system banners and classify connected computing appliances.
-        """
+        """Connects safely to open channels to extract banners and classify computing appliances."""
         profile = {
             "ip_address": ip,
             "primary_interface_port": port,
@@ -49,12 +40,10 @@ class DeepHardwareProfiler:
         }
 
         try:
-            # Open socket link with strict timeouts to prevent channel blocking
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(1.0)
             s.connect((ip, port))
             
-            # Formulate safe probe vectors based on standard target port configurations
             probe = b"GET / HTTP/1.0\r\n\r\n" if port == 80 else b"\r\n"
             s.sendall(probe)
             banner = s.recv(512).decode('utf-8', errors='ignore').strip()
@@ -62,7 +51,7 @@ class DeepHardwareProfiler:
         except Exception:
             banner = ""
 
-        # Device Classification Heuristics Matrix
+        # Device Heuristics Matrix
         if port == 502:
             profile["architecture_class"] = "Programmable Logic Controller (PLC)"
             profile["inferred_protocol"] = "Modbus/TCP"
@@ -104,7 +93,6 @@ class DeepHardwareProfiler:
         filename = f"node_profile_{safe_ip}.json"
         target_path = LIBRARY_DIR / filename
 
-        # Merge updates if a profile file already exists for this device
         if target_path.exists():
             try:
                 with open(target_path, 'r', encoding='utf-8') as f:
@@ -119,19 +107,11 @@ class DeepHardwareProfiler:
         print(f"[💾] NODE LIBRARY ACCESS: Compiled hardware profile saved -> {filename}")
 
 
-# -------------------------------------------------------------
-# CORE MODULE 2: NETWORK ROUTING SCANNER & VALIDATOR
-# -------------------------------------------------------------
-
 class UnivacNetworkMonitor:
     def __init__(self, subnet_override=None):
         self.discovered_nodes = {}
         self.lock = threading.Lock()
-        
-        if subnet_override:
-            self.base_subnet = subnet_override
-        else:
-            self.base_subnet = self.detect_local_subnet()
+        self.base_subnet = subnet_override if subnet_override else self.detect_local_subnet()
 
     def detect_local_subnet(self) -> str:
         """Determines the local subnet routing path based on active network interfaces."""
@@ -143,7 +123,7 @@ class UnivacNetworkMonitor:
             ip_parts = local_ip.split('.')
             return f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}."
         except Exception:
-            return "192.168.1."  # Standard fallback LAN baseline
+            return "192.168.1."
 
     def scan_port_target(self, ip_address: str, port_list: list):
         """Sweeps a target IP across vital system ports, spinning up the profiler on discovery."""
@@ -156,8 +136,6 @@ class UnivacNetworkMonitor:
                 if result == 0:
                     sock.close()
                     print(f"\n[🔬] HARDWARE HIT: Detected device response at {ip_address}:{port}. Fingerprinting...")
-                    
-                    # Interrogate and write profile to JSON library folder
                     profile = DeepHardwareProfiler.interrogate_device(ip_address, port)
                     DeepHardwareProfiler.register_profile_to_library(profile)
                     
@@ -170,10 +148,9 @@ class UnivacNetworkMonitor:
                 continue
 
     def crawl_immediate_network(self):
-        """Sweeps all 254 active host slots on the current subnet using high-speed multi-threading."""
+        """Sweeps all 254 active host slots on the current subnet using multi-threading."""
         print(f"[*] Commencing discovery sweep on subnet range: {self.base_subnet}0/24")
-        # Target port matrix: HTTP, SSH, Telnet/TTY, Modbus PLCs, EtherNet/IP PLCs
-        common_ports = [80, 22, 23, 502, 44818]
+        common_ports = [22, 23, 80, 502, 44818]
         
         threads = []
         for host in range(1, 255):
@@ -207,47 +184,47 @@ class UnivacNetworkMonitor:
             print(f"[+] Located {len(gateways)} surrounding network subnets: {gateways}")
         return gateways
 
-    # -------------------------------------------------------------
-    # CORE MODULE 3: KEEP-ALIVE ICMP AUDITING LAYER
-    # -------------------------------------------------------------
-    
     def validate_node_ping(self, ip_address: str) -> bool:
         """Dispatches an OS-agnostic ICMP echo request to verify device availability."""
         param = "-n" if sys.platform == "win32" else "-c"
         timeout_param = "-w" if sys.platform == "win32" else "-W"
         timeout_val = "1000" if sys.platform == "win32" else "1"
         
-command = ["ping", param, "1", timeout_param, timeout_val, ip_address]
-try:
-response = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-return response.returncode == 0
-except Exception:
-return False
-def run_database_audit_pass(self):
-"""Combs the Master VCF, pings mapped network hosts, and rewrites online/offline statuses."""
-if not MASTER_VCF.exists():
-print("[-] Keep-alive audit bypassed: Master database file does not exist yet.")
-return
-print(f"[*] Auditing connection status logs in '{MASTER_VCF.name}' via ICMP matrix...")
-with open(MASTER_VCF, 'r', encoding='utf-8') as f:
-content = f.read()
-vcards = content.split("BEGIN:VCARD")
-updated_vcards = []
-timestamp = time.strftime("%Y-%m-%d_%H:%M:%S")
-for card in vcards:
-if "END:VCARD" not in card:
-continue
-ip_match = re.search(r'TEL;TYPE=IP,DIRECT:(.+)$', card, re.MULTILINE)
-if ip_match:
-target_ip = ip_match.group(1).strip()
-print(f" -> Auditing Node [{target_ip}]: ", end="", flush=True)
-is_online = self.validate_node_ping(target_ip)
-status_str = "ONLINE" if is_online else "OFFLINE"
-print(status_str)
-# Clear pre-existing validation metadata entries to prevent file bloating
+        command = ["ping", param, "1", timeout_param, timeout_val, ip_address]
+        try:
+            response = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return response.returncode == 0
+        except Exception:
+            return False
+
+    def run_database_audit_pass(self):
+        """Combs the Master VCF, pings mapped network hosts, and rewrites online/offline statuses."""
+        if not MASTER_VCF.exists():
+            print("[-] Keep-alive audit bypassed: Master database file does not exist yet.")
+            return
+
+        print(f"[*] Auditing connection status logs in '{MASTER_VCF.name}' via ICMP matrix...")
+        with open(MASTER_VCF, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        vcards = content.split("BEGIN:VCARD")
+        updated_vcards = []
+        timestamp = time.strftime("%Y-%m-%d_%H:%M:%S")
+
+        for card in vcards:
+            if "END:VCARD" not in card:
+                continue
+
+            ip_match = re.search(r'TEL;TYPE=IP,DIRECT:(.+)$', card, re.MULTILINE)
+            if ip_match:
+                target_ip = ip_match.group(1).strip()
+                print(f"    -> Auditing Node [{target_ip}]: ", end="", flush=True)
+                
+                is_online = self.validate_node_ping(target_ip)
+                status_str = "ONLINE" if is_online else "OFFLINE"
+                print(status_str)
 card = re.sub(r'^X-UNIVAC-NODE-STATUS:.$', '', card, flags=re.MULTILINE)
 card = re.sub(r'^X-UNIVAC-LAST-VALIDATED:.$', '', card, flags=re.MULTILINE)
-# Append updated keep-alive attributes right before the card boundaries close
 status_extension = f"X-UNIVAC-NODE-STATUS:{status_str}\nX-UNIVAC-LAST-VALIDATED:{timestamp}\nEND:VCARD"
 card = card.replace("END:VCARD", status_extension)
 updated_vcards.append("BEGIN:VCARD" + card)
@@ -286,36 +263,24 @@ if vcf_appends:
 with open(MASTER_VCF, 'a', encoding='utf-8') as f:
 f.write("\n".join(vcf_appends))
 print(f"[+] Successfully appended {len(vcf_appends)} newly recovered nodes to {MASTER_VCF.name}")
-# -------------------------------------------------------------
-# MASTER EXECUTION PIPELINE ROUTINE
-# -------------------------------------------------------------
 def run_complete_discovery_cycle(self):
-"""Runs an integrated diagnostic pass to discover devices and audit network health."""
 print("\n=========================================================")
 print(" UNIVAC-IX NETWORK INTEGRITY & DISCOVERY SWEEP")
 print("=========================================================")
-# Pass 1: Perform audit loops on current directory nodes
 self.run_database_audit_pass()
-# Pass 2: Sweep local subnet address blocks
 self.crawl_immediate_network()
-# Pass 3: Check adjacent pathways and map external subnets
 adjacent_subnets = self.discover_surrounding_networks()
 for alt_net in adjacent_subnets:
-secondary_scanner = UnivacNetworkScanner(subnet_override=alt_net)
+secondary_scanner = UnivacNetworkMonitor(subnet_override=alt_net)
 secondary_scanner.crawl_immediate_network()
-# Safely merge discovered targets back into primary scanner dictionary
 with self.lock:
 self.discovered_nodes.update(secondary_scanner.discovered_nodes)
-# Pass 4: Sync all newly compiled profiles back to the main VCF database
 self.reconcile_with_master_vcf()
-print("=========================================================")
-print(" NETWORK SWEEP COMPLETE: Database and profiles synced.")
 print("=========================================================\n")
 if name == "main":
-scanner = UnivacNetworkScanner()
-# Enable background daemon execution mode if flag parameter is passed
+scanner = UnivacNetworkMonitor()
 if len(sys.argv) > 1 and sys.argv[1] == "--continuous":
-print("[*] Running in persistent network monitor mode (60-second loop intervals)...")
+print("[*] Running in persistent network monitor mode (60-second intervals)...")
 try:
 while True:
 scanner.run_complete_discovery_cycle()
@@ -323,6 +288,4 @@ time.sleep(60)
 except KeyboardInterrupt:
 print("\n[-] Background network monitor loop terminated gracefully.")
 else:
-# Run a single discovery pass by default
 scanner.run_complete_discovery_cycle()
-
