@@ -1,6 +1,6 @@
 # File Name: main.py
 # Location: /src/
-# Subsystem: UNIVAC-IX Sovereignty Mainframe OS (Unified Core)
+# Subsystem: UNIVAC-IX Sovereignty Mainframe OS (Unified Core) & Kommandogerat-58 Physics
 
 import sys
 import os
@@ -23,7 +23,7 @@ try:
 except ImportError:
     serial = None
 
-app = typer.Typer(help="UNIVAC-IX Sovereignty Mainframe OS, Bidirectional Radio Mesh, Data Recovery, & SLA Accounting Core Fabric")
+app = typer.Typer(help="UNIVAC-IX Sovereignty Mainframe OS, Bidirectional Radio Mesh, Data Recovery, SLA Accounting & Kommandogerat-58 Physics Engineering Core")
 
 # ------------------------------------------------------------------------------
 # GLOBAL STATE & SLA REGISTERS
@@ -91,6 +91,57 @@ def inline_multicore_hex_decode(raw_hex_string: str) -> str:
     return bytes(raw_text_matrix[0, :hex_len // 2]).decode("utf-8", errors="ignore")
 
 # ------------------------------------------------------------------------------
+# KOMMANDOGERAT-58 PHYSICS ENGINEERING CORE (JIT COMPILED)
+# ------------------------------------------------------------------------------
+@njit(cache=True, fastmath=True)
+def calculate_single_piston_load(pressure_pascal: float, bore_diameter_meters: float, rod_diameter_meters: float, force_direction_is_extension: int) -> float:
+    """Computes the exact output force in Newtons exerted by a hydraulic or pneumatic piston barrel."""
+    area_bore = (math.pi * (bore_diameter_meters ** 2)) / 4.0
+    
+    if force_direction_is_extension == 1:
+        return pressure_pascal * area_bore
+        
+    area_rod = (math.pi * (rod_diameter_meters ** 2)) / 4.0
+    area_retraction = area_bore - area_rod
+    return pressure_pascal * area_retraction
+
+@njit(parallel=True, cache=True, fastmath=True)
+def parallel_cpu_compute_actuator_stresses(pressures: np.ndarray, bores: np.ndarray, rods: np.ndarray, directions: np.ndarray) -> np.ndarray:
+    """Processes massive arrays of concurrent actuator load configurations across all available CPU threads."""
+    total_elements = pressures.shape[0]
+    calculated_forces_newtons = np.zeros(total_elements, dtype=np.float64)
+    
+    for i in prange(total_elements):
+        calculated_forces_newtons[i] = calculate_single_piston_load(pressures[i], bores[i], rods[i], directions[i])
+        
+    return calculated_forces_newtons
+
+@njit(cache=True, fastmath=True)
+def evaluate_rotational_torque_nm(force_newtons: float, arm_length_meters: float, force_angle_degrees: float) -> float:
+    """Calculates effective torsional moment vector force applied on dynamic gear linkages or rotary joints."""
+    angle_radians = (force_angle_degrees * math.pi) / 180.0
+    return force_newtons * arm_length_meters * math.sin(angle_radians)
+
+@njit(parallel=True, cache=True, fastmath=True)
+def parallel_cpu_verify_mass_balance(masses: np.ndarray, radii: np.ndarray, angles_deg: np.ndarray) -> np.ndarray:
+    """Resolves net static and dynamic multi-axis imbalances to ensure high-speed mechanical structural alignment."""
+    total_mass_nodes = masses.shape[0]
+    forces_vector = np.zeros(2, dtype=np.float64) # Index 0 = X Force component, Index 1 = Y Force component
+    
+    sum_x = 0.0
+    sum_y = 0.0
+    
+    for i in prange(total_mass_nodes):
+        rad = (angles_deg[i] * math.pi) / 180.0
+        centrifugal_factor = masses[i] * radii[i]
+        sum_x += centrifugal_factor * math.cos(rad)
+        sum_y += centrifugal_factor * math.sin(rad)
+        
+    forces_vector[0] = sum_x
+    forces_vector[1] = sum_y
+    return forces_vector
+
+# ------------------------------------------------------------------------------
 # DATA RECOVERY LOGGERS & RADIO MESH
 # ------------------------------------------------------------------------------
 def log_intelligence_hit_to_visio(pattern_type: str, exact_match: str, line_number: int, target_csv: Path) -> None:
@@ -122,7 +173,7 @@ def broadcast_intel_over_radio(pattern_type: str, exact_match: str) -> None:
         pass
 
 # ------------------------------------------------------------------------------
-# COMMAND 1: THE NETWORK PORT LISTENER (SLA ACCOUNTING)
+# THE NETWORK PORT LISTENER (SLA ACCOUNTING)
 # ------------------------------------------------------------------------------
 def calculate_and_log_sla_credits(channel_addr: str, visio_csv: Path) -> None:
     if channel_addr not in _active_sla_breach_timers: return
@@ -217,6 +268,9 @@ def process_incoming_stream(hex_address: str, raw_payload: bytes, config_data: D
     decoded_readable_text = inline_multicore_hex_decode(hex_payload_str)
     print(f"  [CORE PROCESSING RUNTIME] Address: {clean_addr} | Hex: {hex_payload_str} | Ascii: {decoded_readable_text}")
 
+# ------------------------------------------------------------------------------
+# COMMAND: LISTEN PORTS
+# ------------------------------------------------------------------------------
 @app.command(name="listen-ports")
 def listen_ports_command(
     config: Path = typer.Option(Path("config.yaml"), help="Path to the master system topology file registry configuration."),
@@ -286,7 +340,7 @@ def listen_ports_command(
         raise typer.Exit(code=0)
 
 # ------------------------------------------------------------------------------
-# COMMAND 2: MANUAL ROUTE INJECTION
+# COMMAND: MANUAL ROUTE INJECTION
 # ------------------------------------------------------------------------------
 @app.command(name="route-signal")
 def route_signal_command(
@@ -306,7 +360,7 @@ def route_signal_command(
     process_incoming_stream(hex_address, raw_data, config_data, visio_csv)
 
 # ------------------------------------------------------------------------------
-# COMMAND 3: QUANTUM BRIDGE ASYNC LOOP
+# COMMAND: QUANTUM BRIDGE ASYNC LOOP
 # ------------------------------------------------------------------------------
 class UnivacIXQuantumBridge:
     def __init__(self):
@@ -378,7 +432,7 @@ def quantum_bridge_command():
         print("\n[SHUTDOWN] Intercepted manual shutdown.")
 
 # ------------------------------------------------------------------------------
-# COMMAND 4: RECOVERED DATA INTEL SCANNER & KVM INJECTOR (NEW)
+# COMMAND: RECOVERED DATA INTEL SCANNER & KVM INJECTOR
 # ------------------------------------------------------------------------------
 @app.command(name="scan-recovered-data")
 def scan_recovered_data_command(
@@ -426,10 +480,8 @@ def scan_recovered_data_command(
             captured_token = found_match.group(1).strip()
             total_matches_injected += 1
             
-            # Generate a discrete unique variable key based on classification type and line offset numbers
             kvm_variable_key = f"REC_{classification_tag}_L{line_idx + 1}"
             
-            # Inject variable parameter blocks directly into the in-memory KVM config layer
             current_gui_state["live_dashboard_vars"][kvm_variable_key] = {
                 "value": captured_token,
                 "source": f"RECOVERY_SCANNER_LINE_{line_idx + 1}",
@@ -458,6 +510,133 @@ def scan_recovered_data_command(
     print(f"\n[INJECTION COMPLETE] Successfully parsed file and synchronized data matrices.")
     print(f"  -> Total Multi-Line List Nodes Appended: {total_matches_injected}")
     print(f"  -> Target KVM JSON Config Synchronized:   '{kvm_gui_config.name}'\n")
+
+# ------------------------------------------------------------------------------
+# COMMAND: SIMULATE ACTUATORS (KOMMANDOGERAT-58)
+# ------------------------------------------------------------------------------
+@app.command(name="simulate-actuators")
+def simulate_actuators_command(
+    total_actuators: int = typer.Option(1000, help="The total array length sizing count of dynamic physical piston components to generate for load simulation testing."),
+    safety_max_force_kn: float = typer.Option(50.0, help="The high-priority threshold constraint tracking absolute maximum safe push-force tolerance limits in kilonewtons.")
+):
+    """Executes high-throughput multi-core matrix calculations tracking physical hydraulic force distributions."""
+    print(f"\n======================================================================")
+    print(f"KOMMANDOGERAT-58 PHYSICS CORE ENGAGED // ACTUATOR FLUID SYSTEM ENGINE")
+    print(f"======================================================================")
+    print(f"[PREPARATION] Allocating structural memory grids for {total_actuators} distinct machine components...")
+    
+    np.random.seed(42)
+    
+    pressures_pascal = np.random.uniform(1e6, 30e6, total_actuators) 
+    bores_meters = np.random.uniform(0.05, 0.25, total_actuators)   
+    rods_meters = np.random.uniform(0.02, 0.12, total_actuators)    
+    directions_binary = np.random.choice([0, 1], total_actuators)   
+    
+    print("[COMPILER] Priming Numba cached parallel optimization calculation layers...")
+    dummy_p = np.array([6e6], dtype=np.float64)
+    dummy_b = np.array([0.1], dtype=np.float64)
+    dummy_r = np.array([0.05], dtype=np.float64)
+    dummy_d = np.array([1], dtype=np.int32)
+    parallel_cpu_compute_actuator_stresses(dummy_p, dummy_b, dummy_r, dummy_d)
+    
+    print("[EXECUTION] Computing vector load matrices across all host execution CPU threads simultaneously...")
+    start_time = time.time()
+    forces_output_newtons = parallel_cpu_compute_actuator_stresses(pressures_pascal, bores_meters, rods_meters, directions_binary)
+    execution_duration = time.time() - start_time
+    
+    max_measured_force_newtons = np.max(forces_output_newtons)
+    max_measured_force_kn = max_measured_force_newtons / 1000.0
+    
+    print(f"[SUCCESS] Actuator kinematics mapped natively in {execution_duration:.5f} seconds.")
+    print(f"  -> Mean Extracted Output Thrust Force: {(np.mean(forces_output_newtons)/1000.0):.2f} kN")
+    print(f"  -> Maximum Isolated Critical Piston Load: {max_measured_force_kn:.2f} kN")
+    
+    if max_measured_force_kn > safety_max_force_kn:
+        sys.stdout.write("\a\a\a")
+        sys.stdout.flush()
+        print("\n" + "!" * 80)
+        print(f" !!! CRITICAL MECHANICAL COMPLIANCE EXCEEDED: MATERIAL DEFORMATION FAILURE LIMITS THREATENED !!!")
+        print(f" -> SIMULATED THRESHOLD BOUNDS LIMIT: {safety_max_force_kn:.2f} kN")
+        print(f" -> CRITICAL STRESS PEAK CAPTURED:    {max_measured_force_kn:.2f} kN !!! BREACHED !!!")
+        print("!" * 80 + "\n")
+        raise typer.Exit(code=3)
+        
+    print(f"  -> [COMPLIANCE STATUS] All systems operating safely within structural structural constraints.\n")
+
+# ------------------------------------------------------------------------------
+# COMMAND: ANALYZE ROTARY BALANCE (KOMMANDOGERAT-58)
+# ------------------------------------------------------------------------------
+@app.command(name="analyze-rotary-balance")
+def analyze_rotary_balance_command(
+    mass_nodes_count: int = typer.Option(5, help="Total offset weights mapped along the dynamic spinning flywheel structure.")
+):
+    """Parses rotational angle orientations and weights to map dynamic static alignment vectors across dynamic shafts."""
+    print(f"\n======================================================================")
+    print(f"KOMMANDOGERAT-58 PHYSICS CORE ENGAGED // MULTI-AXIS ROTATIONAL BALANCE")
+    print(f"======================================================================")
+    
+    np.random.seed(101)
+    
+    masses_kg = np.random.uniform(0.5, 12.0, mass_nodes_count)
+    radii_meters = np.random.uniform(0.1, 0.8, mass_nodes_count)
+    angles_degrees = np.random.uniform(0.0, 360.0, mass_nodes_count)
+    
+    print(f"[RECON] Analyzing mass profiles across {mass_nodes_count} offset weight junctions...")
+    
+    dummy_m = np.array([1.0], dtype=np.float64)
+    dummy_rad = np.array([0.5], dtype=np.float64)
+    dummy_ang = np.array([45.0], dtype=np.float64)
+    parallel_cpu_verify_mass_balance(dummy_m, dummy_rad, dummy_ang)
+    
+    imbalance_vectors = parallel_cpu_verify_mass_balance(masses_kg, radii_meters, angles_degrees)
+    
+    resultant_x = imbalance_vectors[0]
+    resultant_y = imbalance_vectors[1]
+    net_imbalance_magnitude = math.sqrt((resultant_x ** 2) + (resultant_y ** 2))
+    
+    counter_angle_rad = math.atan2(-resultant_y, -resultant_x)
+    counter_angle_deg = (counter_angle_rad * 180.0) / math.pi
+    
+    if counter_angle_deg < 0.0:
+        counter_angle_deg += 360.0
+        
+    print("[ANALYSIS SUCCESS] Rotational inertia equations completed.")
+    print(f"  -> Net Unmitigated Mechanical Centrifugal Imbalance: {net_imbalance_magnitude:.4f} kg·m")
+    print(f"  -> Calculated Counterweight Vector Correction Angle: {counter_angle_deg:.2f}° Heading")
+    
+    if net_imbalance_magnitude > 2.5:
+        print(f"  -> [WARNING] High vibration harmonics flagged. Counterweight corrections must be applied immediately.\n")
+        return
+        
+    print(f"  -> [BALANCE STATUS] Dynamic structural vibrations fall within standard nominal ranges.\n")
+
+# ------------------------------------------------------------------------------
+# COMMAND: CALCULATE LINKAGE TORQUE (KOMMANDOGERAT-58)
+# ------------------------------------------------------------------------------
+@app.command(name="calculate-linkage-torque")
+def calculate_linkage_torque_command(
+    force_newtons: float = typer.Argument(..., help="Linear vector force in Newtons driving into the mechanism rod assembly."),
+    arm_length_meters: float = typer.Argument(..., help="The distance radius from the rotational axis spindle to the force input junction point."),
+    angle_degrees: float = typer.Option(90.0, help="The relative angle in degrees where the force strikes the leverage arm surface.")
+):
+    """Calculates instantaneous torsional moments on mechanical shafts or rotary actuators using strict guard boundaries."""
+    if force_newtons <= 0.0:
+        print("[INPUT ERROR] Applied line force parameters must reflect real-world positive attributes.", file=sys.stderr)
+        raise typer.Exit(code=1)
+        
+    if arm_length_meters <= 0.0:
+        print("[INPUT ERROR] Moment arm lengths must possess valid physical distance extensions.", file=sys.stderr)
+        raise typer.Exit(code=1)
+        
+    computed_torque_nm = evaluate_rotational_torque_nm(force_newtons, arm_length_meters, angle_degrees)
+    
+    print(f"\n======================================================================")
+    print(f"KOMMANDOGERAT-58 MECHANICAL TORQUE REPORT")
+    print(f"======================================================================")
+    print(f"  -> Extracted Input Force:      {force_newtons:.2f} N")
+    print(f"  -> Moment Arm Radius Length:  {arm_length_meters:.3f} m")
+    print(f"  -> Angle of Incidence Vector: {angle_degrees:.1f}°")
+    print(f"  -> NET CALCULATED SHAFTS TORQUE OUTPUT: {computed_torque_nm:.2f} N·m\n")
 
 # ------------------------------------------------------------------------------
 # ENTRY POINT
