@@ -1,6 +1,6 @@
 # File Name: grid_blackstart_synchronizer.py
 # Location: /src/modules/
-# Subsystem: Autonomic Grid Blackstart & AC Phase Synchronizer
+# Subsystem: Autonomic Grid Blackstart & AC Phase Synchronizer UPDATE
 # Copyright (c) 2026 Revolutionary Technology
 
 import time
