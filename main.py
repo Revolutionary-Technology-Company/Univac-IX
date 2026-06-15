@@ -14,7 +14,7 @@ try:
 except ImportError:
     serial = None
 
-app = typer.Typer(help="UNIVAC-IX Tactical Automation, Dual-Way Radio Mesh & Safety Core Fabric")
+app = typer.Typer(help="UNIVAC-IX Tactical Dual-Way Radio Mesh & Live Visio Auditing Fabric")
 
 _active_serial_handles: Dict[str, Any] = {}
 
@@ -71,50 +71,76 @@ def inline_multicore_hex_decode(raw_hex_string: str) -> str:
     return bytes(raw_text_matrix[0, :hex_len // 2]).decode("utf-8", errors="ignore")
 
 
+# --- Automated Live Visio Auditing Script Component ---
+
+def append_radio_injection_to_visio_map(target_addr: str, override_payload_hex: str, target_csv: Path) -> None:
+    """Appends live over-the-air modifications straight into the Visio diagram ledger file."""
+    if not target_csv.exists():
+        print(f"  [VISIO LOG FAULT] Target ledger template missing at path '{target_csv}'. Run export-visio command first.", file=sys.stderr)
+        return
+        
+    # Generate discrete timestamped event ID constraints
+    epoch_stamp = int(time.time())
+    node_id = f"RADIO_INJECT_{epoch_stamp}"
+    timestamp = time.strftime("%H:%M:%S")
+    
+    assigned_driver = _cached_fingerprints.get(target_addr.lower(), "DRIVER_UNKNOWN_GENERIC_SERIAL")
+    node_name = f"Radio_Override_{timestamp}"
+    node_desc = f"OTA Injection payload {override_payload_hex} intercepted via Port 19"
+    
+    # Structure layout elements tailored precisely for Microsoft Visio Data Visualizer tools
+    log_line = f"{node_id},{node_name},{node_desc},,,RADIO_MESH_INJECT,VIRTUAL_AIR_LINK,{target_addr.lower()},{assigned_driver},RADIO_MUTATED_STATE,WARNING,Orange\n"
+    
+    try:
+        with open(target_csv, "a", encoding="utf-8") as ledger:
+            ledger.write(log_line)
+        print(f"  -> [VISIO LEDGER UPDATE] Appended tracking node {node_id} directly to target database sheet file.")
+    except Exception as io_err:
+        print(f"  [VISIO LOG FAULT] Could not write to system mapping sheets: {io_err}", file=sys.stderr)
+
+
 # --- Automated Radio Message Processing & Injection Engine ---
 
-def handle_incoming_radio_signal(hex_payload_str: str, config_data: Dict[str, Any]) -> None:
-    """Decodes incoming over-the-air packet blocks on Port 19 and hot-injects them into system command layers."""
+def handle_incoming_radio_signal(hex_payload_str: str, config_data: Dict[str, Any], target_csv: Path) -> None:
+    """Decodes incoming over-the-air packet blocks on Port 19 and maps execution states straight to Visio charts."""
     decoded_text = inline_multicore_hex_decode(hex_payload_str)
     if not decoded_text:
         return
         
     print(f"\n[RADIO MESH RX] Incoming signal captured on channel 0x0013 (RADIO_TRANS_RX).")
-    print(f"  -> Raw Telemetry Stream: {hex_payload_str}")
     print(f"  -> Plaintext Extracted:  {decoded_text}")
     
-    # Standard format for field engineer transmissions: "[CMD] TARGET_ADDR:OVERRIDE_HEX"
     if not decoded_text.startswith("[CMD]"):
         print("  -> [REJECTED] Payload missing authorized tactical command token format structure.", file=sys.stderr)
         return
         
     try:
-        # Strip token prefix and break down address and payload parameters
         command_payload = decoded_text.replace("[CMD]", "").strip()
         target_addr, override_hex = command_payload.split(":", 1)
+        target_addr = target_addr.strip().lower()
+        override_hex = override_hex.strip().upper()
         
-        print(f"  -> [AUTHORIZED COMMAND VALIDATED] Hot-injecting radio instruction straight to terminal system...")
-        print(f"    * TARGET ROUTE INTERFACE: {target_addr.strip().upper()}")
-        print(f"    * INJECTED HEX VECTOR:   {override_hex.strip().upper()}")
+        print(f"  -> [AUTHORIZED INTERRUPT VALIDATED] Executing radio instruction update loops...")
         
-        # Programmatically execute the command loop just as if it were natively sent over standard hardware layers
-        raw_bytes = bytes.fromhex(override_hex.strip().upper())
-        process_incoming_stream(target_addr.strip().lower(), raw_bytes, config_data)
+        # 1. Fire the real-time visual mapping script engine append function before routing state payloads
+        append_radio_injection_to_visio_map(target_addr, override_hex, target_csv)
+        
+        # 2. Programmatically execute the inner core hardware engine command loop paths
+        raw_bytes = bytes.fromhex(override_hex)
+        process_incoming_stream(target_addr, raw_bytes, config_data, target_csv)
     except Exception as parse_err:
         print(f"  -> [MALFORMED INTERRUPT] Failed to parse internal radio override string parameters: {parse_err}", file=sys.stderr)
 
-def process_incoming_stream(hex_address: str, raw_payload: bytes, config_data: Dict[str, Any]) -> None:
+def process_incoming_stream(hex_address: str, raw_payload: bytes, config_data: Dict[str, Any], target_csv: Path) -> None:
     clean_addr = hex_address.strip().lower()
     hex_payload_str = raw_payload.hex().upper()
     
-    # Check if the signal hit our radio receiver channel
     if clean_addr == "0x0013":
-        handle_incoming_radio_signal(hex_payload_str, config_data)
+        handle_incoming_radio_signal(hex_payload_str, config_data, target_csv)
         return
 
-    # Normal routing loops for standard peripheral interfaces continue below
     decoded_readable_text = inline_multicore_hex_decode(hex_payload_str)
-    print(f"  [CORE FABRIC EXECUTE] Address: {clean_addr} -> Processing Module Data Stream: {decoded_readable_text}")
+    print(f"  [CORE FABRIC EXECUTE] Address: {clean_addr} -> Dispatched to target module driver pipeline: {decoded_readable_text}")
 
 
 # --- Daemon Engine Startup Commands ---
@@ -129,13 +155,14 @@ def load_system_config(config_path: Path) -> Dict[str, Any]:
 @app.command(name="listen-ports")
 def listen_ports_command(
     config: Path = typer.Option(Path("config.yaml"), help="Path to the system topology file."),
+    visio_csv: Path = typer.Option(Path("visio_mapping.csv"), help="The target data visualizer spreadsheet to write audits to."),
     network_port: int = typer.Option(8080, help="Network port simulating aggregate fiber optic lines.")
 ):
-    """Launches the master receiver engine processing hardware lines, network data, and bidirectional radio inputs."""
+    """Launches the master multi-channel communication server matrix with dynamic visual ledger logging hooks."""
     global _active_serial_handles
     config_data = load_system_config(config)
     print(f"\n======================================================================")
-    print(f"FULL DUAL-WAY RADIO MESH DAEMON LIVE: {config_data.get('system', {}).get('identity', 'UNIVAC-CORE')}")
+    print(f"VISIO AUDITING RADIO DAEMON LIVE: {config_data.get('system', {}).get('identity', 'UNIVAC-CORE')}")
     print(f"======================================================================")
     inline_multicore_hex_decode("414243") # Warm up cache arrays
     
@@ -151,22 +178,21 @@ def listen_ports_command(
         except Exception:
             pass
 
-    print(f"[LIVE MONITOR] Scanning infrastructure channels. Radio Receiver (Port 19) is armed.\n")
+    print(f"[LIVE MONITOR] Scanning infrastructure channels. Target Visio audit file loaded: '{visio_csv}'\n")
 
     try:
         while True:
-            # Poll all open physical serial lanes including our radio receiver
             for hex_addr, serial_conn in list(_active_serial_handles.items()):
                 if not serial_conn.in_waiting:
                     continue
                 raw_bytes = serial_conn.read(serial_conn.in_waiting)
                 if raw_bytes:
-                    process_incoming_stream(hex_addr, raw_bytes, config_data)
+                    process_incoming_stream(hex_addr, raw_bytes, config_data, visio_csv)
 
             time.sleep(0.005)
 
     except KeyboardInterrupt:
-        print("\n[SHUTDOWN] Terminating radio mesh framework safely.")
+        print("\n[SHUTDOWN] Terminating auditing tracking mesh frameworks safely.")
         raise typer.Exit(code=0)
 
 
