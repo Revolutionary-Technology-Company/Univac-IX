@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-UNIVAC-IX Master Directory Engine
-Converts modern and legacy data sources (CSV, TXT, 720-char Blocks) into an 
-Android-compatible .vcf file embedded with UNIVAC 6-bit XS-3 telemetry metadata.
+UNIVAC-IX Master Directory & Telemetry Engine
+Converts modern and legacy data sources into an Android-compatible .vcf file 
+embedded with UNIVAC 6-bit XS-3 telemetry metadata, telegraphy, and RF profiles.
 """
 
 import csv
@@ -11,7 +11,6 @@ import os
 import re
 
 # Authentic 6-bit Excess-3 (XS-3) Character Mapping Table
-# Maps characters to their exact 1950s UNIVAC binary string representations.
 XS3_TABLE = {
     '0': '000011', '1': '000100', '2': '000101', '3': '000110', '4': '000111',
     '5': '001000', '6': '001001', '7': '001010', '8': '001011', '9': '001100',
@@ -20,7 +19,8 @@ XS3_TABLE = {
     'K': '011110', 'L': '011111', 'M': '100000', 'N': '100001', 'O': '100010',
     'P': '100011', 'Q': '100100', 'R': '100101', 'S': '101010', 'T': '101011',
     'U': '101100', 'V': '101101', 'W': '101110', 'X': '101111', 'Y': '110000',
-    'Z': '110001', ' ': '010010', '-': '001101', ',': '111010', '.': '111100'
+    'Z': '110001', ' ': '010010', '-': '001101', ',': '111010', '.': '111100',
+    '/': '011010', ':': '001110', '@': '110100'
 }
 
 def to_xs3_stream(text: str) -> str:
@@ -33,20 +33,24 @@ def to_xs3_stream(text: str) -> str:
             binary_stream.append(XS3_TABLE[' ']) # Fallback to space if character unknown
     return "".join(binary_stream)
 
-def build_fixed_word_layout(name: str, plc: str, address: str, phone: str) -> dict:
+def build_fixed_word_layout(record: dict) -> dict:
     """
-    Structures raw fields into a traditional 90-character/72-character layout
-    and generates the matching UNIVAC word architecture metadata.
+    Structures raw text fields and advanced telecommunication telemetry 
+    into a traditional UNIVAC 12-character fixed-word block format.
     """
-    # Pad and format fields according to 1950s record parameters
-    clean_name = name.strip().upper()[:35].ljust(35)
-    clean_plc = plc.strip().upper()[:5].ljust(5)
-    clean_address = address.strip().upper()[:35].ljust(35)
-    clean_phone = re.sub(r'\D', '', phone)[:15].ljust(15)
+    clean_name = record.get("name", "UNKNOWN").strip().upper()[:24].ljust(24)         # 2 Words
+    clean_phone = re.sub(r'[^\d+]', '', record.get("phone", ""))[:12].ljust(12)      # 1 Word
+    clean_plc = record.get("plc_node", "0000").strip().upper()[:12].ljust(12)         # 1 Word
     
-    raw_record = f"{clean_name}{clean_plc}{clean_address}{clean_phone}"
+    # Telemetry Compression Block (Baud, WPM, Frequency, Modulation)
+    telemetry_str = (
+        f"B:{record.get('telegraph_baud', '45').strip()}/"
+        f"W:{record.get('telegraph_wpm', '60').strip()}/"
+        f"F:{record.get('rf_frequency', '000.00').strip()}"
+    )[:24].ljust(24) # 2 Words
     
-    # Split the raw string stream into standard UNIVAC 12-character words
+    # Total structure = 72 characters (Exactly 6 UNIVAC 12-character words)
+    raw_record = f"{clean_name}{clean_phone}{clean_plc}{telemetry_str}"
     words = [raw_record[i:i+12] for i in range(0, len(raw_record), 12)]
     
     return {
@@ -55,56 +59,35 @@ def build_fixed_word_layout(name: str, plc: str, address: str, phone: str) -> di
         "xs3_stream": to_xs3_stream(raw_record)
     }
 
-def parse_720_block(block_data: str) -> list:
-    """
-    Parses a raw 720-character UNISERVO tape block dump.
-    Assumes an 8-record layout per block (90 characters per personnel entry).
-    """
-    records = []
-    if len(block_data) < 720:
-        block_data = block_data.ljust(720)
-        
-    for i in range(0, 720, 90):
-        chunk = block_data[i:i+90]
-        if chunk.strip() == "" or chunk.count(' ') == 90:
-            continue
-            
-        name = chunk[0:35].strip()
-        plc = chunk[35:40].strip()
-        address = chunk[40:75].strip()
-        phone = chunk[75:90].strip()
-        
-        if name or phone:
-            records.append({
-                "name": name,
-                "plc": plc,
-                "address": address,
-                "phone": phone
-            })
-    return records
-
 def generate_vcard_entry(record: dict) -> str:
     """
-    Generates an Android/iOS compatible vCard string injected with custom 
-    X-UNIVAC extensions for integration with legacy systems like CRAY and PLCs.
+    Generates a unified vCard 3.0 entry containing telecommunication telemetry,
+    RF tuning data, and raw 6-bit XS-3 bitstreams for cross-era network interfaces.
     """
-    meta = build_fixed_word_layout(
-        record.get("name", "UNKNOWN"),
-        record.get("plc", "000"),
-        record.get("address", ""),
-        record.get("phone", "")
-    )
+    meta = build_fixed_word_layout(record)
     
     vcf = []
     vcf.append("BEGIN:VCARD")
     vcf.append("VERSION:3.0")
     vcf.append(f"FN:{record.get('name', 'UNKNOWN').strip()}")
-    vcf.append(f"TEL;TYPE=CELL,VOICE:{record.get('phone', '').strip()}")
-    vcf.append(f"ADR;TYPE=WORK:;;{record.get('address', '').strip()};;;;")
-    vcf.append(f"ORG:UNIVAC Plant;PLC-{record.get('plc', '000').strip()}")
+    vcf.append(f"TEL;TYPE=CELL,VOICE,PSTN:{record.get('phone', '').strip()}")
+    vcf.append(f"ADR;TYPE=WORK:;;{record.get('address', 'UNIVAC INFRASTRUCTURE').strip()};;;;")
     
-    # Custom X-UNIVAC headers for legacy hardware and machine-language parsing
-    vcf.append(f"X-UNIVAC-PLC:{record.get('plc', '000').strip()}")
+    # Base Operational Identifiers
+    vcf.append(f"X-UNIVAC-PLC-NODE:{record.get('plc_node', '0000').strip()}")
+    vcf.append(f"X-UNIVAC-DEPT-CODE:{record.get('dept_code', 'ENG-01').strip()}")
+    
+    # Expanded Telegraphy Parameters
+    vcf.append(f"X-UNIVAC-TELEGRAPH-BAUD:{record.get('telegraph_baud', '45.45').strip()}")
+    vcf.append(f"X-UNIVAC-TELEGRAPH-WPM:{record.get('telegraph_wpm', '60').strip()}")
+    vcf.append(f"X-UNIVAC-TELEGRAPH-CODE:{record.get('telegraph_code', 'BAUDOT-ITA2').strip()}") # ITA2, Morse, XS-3
+    
+    # Expanded Radio Frequency (RF) Parameters
+    vcf.append(f"X-UNIVAC-RF-FREQUENCY:{record.get('rf_frequency', '14.090').strip()} MHz")
+    vcf.append(f"X-UNIVAC-RF-MODULATION:{record.get('rf_modulation', 'FSK').strip()}")       # FSK, AFSK, AM, CW
+    vcf.append(f"X-UNIVAC-RF-SHIFT:{record.get('rf_shift', '170').strip()} Hz")            # Frequency shift for RTTY/Telegraph
+    
+    # Raw Machine Telemetry Elements for UNIVAC-IX Hardware / CRAY Mainframes
     vcf.append(f"X-UNIVAC-WORD-LAYOUT:{','.join(meta['words'])}")
     vcf.append(f"X-UNIVAC-XS3-STREAM:{meta['xs3_stream']}")
     vcf.append(f"X-UNIVAC-RECORD-RAW:{meta['raw_record']}")
@@ -114,74 +97,75 @@ def generate_vcard_entry(record: dict) -> str:
 
 def scan_and_convert(input_file: str, output_vcf: str):
     """
-    Detects the file type based on content structure, parses directory items, 
-    and appends them directly into the target master .vcf database file.
+    Parses active data directories or flat telemetry records, maps telecommunication
+    profiles, and outputs/appends directly to the master .vcf database file.
     """
     found_records = []
     
     if not os.path.exists(input_file):
-        print(f"Error: Input path {input_file} does not exist.")
+        print(f"[-] Input file {input_file} not found.")
         return
 
     with open(input_file, 'r', encoding='utf-8', errors='ignore') as f:
-        content = f.read()
-
-    # Strategy 1: Detect 720-character tape block formatting
-    if len(content) >= 720 and not ',' in content and not '\t' in content:
-        print(f"[*] Processing {input_file} as a legacy UNIVAC 720-Character Block File...")
-        # Break content into individual 720-character blocks
-        blocks = [content[i:i+720] for i in range(0, len(content), 720)]
-        for b in blocks:
-            found_records.extend(parse_720_block(b))
-            
-    # Strategy 2: Process as a structured CSV/Text layout
-    else:
-        print(f"[*] Scanning {input_file} as flat text/CSV layout...")
-        f.seek(0)
+        # Check for standard structured CSV header schemas
         try:
             reader = csv.DictReader(f)
-            # Check for common header naming schemas
-            headers = [h.lower() for h in reader.fieldnames] if reader.fieldnames else []
-            if 'name' in headers or 'phone' in headers:
+            if reader.fieldnames and any(k in [fn.lower() for fn in reader.fieldnames] for k in ['name', 'phone', 'baud']):
                 for row in reader:
+                    # Case insensitive normalized lookup mapping
+                    row_lower = {k.lower(): v for k, v in row.items()}
                     found_records.append({
-                        "name": row.get('name', row.get('NAME', 'UNKNOWN')),
-                        "plc": row.get('plc', row.get('PLC', '000')),
-                        "address": row.get('address', row.get('ADDRESS', '')),
-                        "phone": row.get('phone', row.get('PHONE', ''))
+                        "name": row_lower.get('name', 'UNKNOWN'),
+                        "phone": row_lower.get('phone', ''),
+                        "address": row_lower.get('address', ''),
+                        "plc_node": row_lower.get('plc_node', row_lower.get('plc', '0000')),
+                        "dept_code": row_lower.get('dept_code', 'ENG-01'),
+                        "telegraph_baud": row_lower.get('telegraph_baud', row_lower.get('baud', '45.45')),
+                        "telegraph_wpm": row_lower.get('telegraph_wpm', row_lower.get('wpm', '60')),
+                        "telegraph_code": row_lower.get('telegraph_code', 'BAUDOT-ITA2'),
+                        "rf_frequency": row_lower.get('rf_frequency', row_lower.get('freq', '14.090')),
+                        "rf_modulation": row_lower.get('rf_modulation', row_lower.get('mod', 'FSK')),
+                        "rf_shift": row_lower.get('rf_shift', '170')
                     })
             else:
-                # Fallback Regex scanning for unformatted text logs
+                # Default Regex fallback parser if scanning generic text logs or diagnostics
                 f.seek(0)
                 for line in f:
-                    # Regex searching for basic phone patterns: e.g., 555-1234 or (555) 123-4567
                     phone_match = re.search(r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', line)
+                    freq_match = re.search(r'\b\d{1,4}\.\d{2,4}\s*(?:MHz|kHz|HZ)\b', line, re.IGNORECASE)
+                    
                     if phone_match:
                         phone = phone_match.group(0)
-                        # Extract string segments around the number as name candidates
-                        name_candidate = line.replace(phone, "").strip(",;\t\n\r ")
+                        freq = freq_match.group(0) if freq_match else "14.090"
+                        name_cand = line.split(phone)[0].strip(",;\t\n\r ")
+                        
                         found_records.append({
-                            "name": name_candidate if name_candidate else "Auto Detected",
-                            "plc": "000",
-                            "address": "Extracted from text logs",
-                            "phone": phone
+                            "name": name_cand if name_cand else "Auto Profile",
+                            "phone": phone,
+                            "plc_node": "0000",
+                            "dept_code": "AUTO-SCAN",
+                            "telegraph_baud": "45.45",
+                            "telegraph_wpm": "60",
+                            "telegraph_code": "BAUDOT-ITA2",
+                            "rf_frequency": freq.upper().replace("MHZ","").strip(),
+                            "rf_modulation": "FSK",
+                            "rf_shift": "170"
                         })
         except Exception as e:
-            print(f"[-] Parsing error encountered: {e}")
+            print(f"[-] Execution layout error: {e}")
 
-    # Write out the structural entries to the VCF database file
+    # Append parsed profiles directly into the unified virtual database file
     if found_records:
         with open(output_vcf, 'a', encoding='utf-8') as out_f:
             for rec in found_records:
                 out_f.write(generate_vcard_entry(rec) + "\n")
-        print(f"[+] Successfully converted {len(found_records)} records into {output_vcf}")
+        print(f"[+] Processed and appended {len(found_records)} advanced telemetry records into {output_vcf}")
     else:
-        print("[-] No valid directory records detected in this file sample.")
+        print("[-] Verification failed: No standard telecommunication profiles found.")
 
 if __name__ == "__main__":
-    # Example execution scaffolding for emulator environments
     import sys
     if len(sys.argv) < 3:
-        print("Usage: python univac_directory_engine.py <input_source_file> <output_database.vcf>")
+        print("Usage: python univac_directory_engine.py <input_file> <output_database.vcf>")
     else:
         scan_and_convert(sys.argv[1], sys.argv[2])
