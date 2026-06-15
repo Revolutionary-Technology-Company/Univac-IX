@@ -1,6 +1,6 @@
 # File Name: sosus_acoustic_propagation_matrix.py
 # Location: /src/modules/
-# Subsystem: SOSUS Hydrophone Array & Acoustic Thermocline Matrix
+# Subsystem: SOSUS Hydrophone Array & Acoustic Thermocline Matrix UPDATED
 # Copyright (c) 2026 Revolutionary Technology
 
 import time
