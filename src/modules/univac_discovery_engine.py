@@ -16,10 +16,16 @@ from pathlib import Path
 
 # --- LOCKED RELATIVE WORKSPACE PATHS ---
 # Resolves from src/modules/ up two levels to the Repository Root Folder
-BASE_DIR = Path(__file__).resolve().parent.parent.parent  
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ROOT_DIR = MODULE_DIR.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 MASTER_VCF = BASE_DIR / "master_database.vcf"
 LIBRARY_DIR = BASE_DIR / "storage_pipeline" / "hardware_node_library"
 TEMPLATES_ROOT = BASE_DIR / "storage_pipeline" / "gantry_site_templates"
+STORAGE_PIPELINE = ROOT_DIR / "storage_pipeline"
+GANTRY_TEMPLATES = STORAGE_PIPELINE / "gantry_site_templates"
+ASSETS_DIR = ROOT_DIR / "assets"
 
 # Ensure all system pipeline target folders exist cleanly
 LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
