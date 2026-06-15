@@ -1,6 +1,6 @@
 # File Name: seismic_tectonic_monitor.py
 # Location: /src/modules/
-# Subsystem: Global Seismograph & Tectonic Rupture Matrix
+# Subsystem: Global Seismograph & Tectonic Rupture Matrix UPDATED
 # Copyright (c) 2026 Revolutionary Technology
 
 import time
