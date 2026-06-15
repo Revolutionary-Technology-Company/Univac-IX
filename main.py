@@ -1,7 +1,6 @@
 # File Name: main.py
 # Location: /src/
 # Subsystem: UNIVAC-IX Sovereignty Ultimate Unified Tactical Field Recovery Engine
-
 import sys
 import os
 import time
@@ -15,11 +14,61 @@ import yaml
 import asyncio
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-
+import importlib.util
+import inspect
 import numpy as np
 from numba import njit, prange
 import typer
 
+# ------------------------------------------------------------------------------
+# AUTONOMIC DYNAMIC MODULE IMPORTER & SUBSYSTEM REGISTRY
+# ------------------------------------------------------------------------------
+class ModuleRegistry:
+    def __init__(self, modules_dir: str = "src/modules"):
+        self.modules_dir = Path(modules_dir)
+        self.active_subsystems: Dict[str, Any] = {}
+        self._bootstrap_modules()
+
+    def _bootstrap_modules(self):
+        """Dynamically scans the modules folder and ingests all co-processor classes."""
+        if not self.modules_dir.exists():
+            print(f"[REGISTRY FAULT] Directory '{self.modules_dir}' not found. Skipping dynamic load.")
+            return
+
+        print(f"\n[SYSTEM BOOT] Engaging Autonomic Subsystem Importer from {self.modules_dir}...")
+        
+        loaded_count = 0
+        for py_file in self.modules_dir.glob("*.py"):
+            if py_file.name == "__init__.py":
+                continue
+                
+            module_name = py_file.stem
+            spec = importlib.util.spec_from_file_location(module_name, py_file)
+            
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                try:
+                    spec.loader.exec_module(module)
+                    
+                    # Extract classes dynamically from the imported module
+                    for name, obj in inspect.getmembers(module, inspect.isclass):
+                        # Filter out imported built-ins or irrelevant classes; we want locally defined ones
+                        if obj.__module__ == module_name:
+                            self.active_subsystems[name] = obj
+                            loaded_count += 1
+                            print(f"  -> Mounted Co-Processor: {name}")
+                except Exception as e:
+                    print(f"  [!] Failed to mount module '{module_name}': {e}", file=sys.stderr)
+
+        print(f"[SYSTEM BOOT COMPLETE] Successfully mounted {loaded_count} distributed co-processors into memory.\n")
+
+    def get_node(self, class_name: str):
+        """Returns the class definition for instantiation."""
+        return self.active_subsystems.get(class_name)
+
+# Initialize the massive global registry
+_UNIVAC_REGISTRY = ModuleRegistry()
 try:
     import serial
 except ImportError:
