@@ -1,6 +1,6 @@
 # File Name: haarp_ionospheric_heater.py
 # Location: /src/modules/
-# Subsystem: Phased Array Ionospheric Heater & ERP Matrix
+# Subsystem: Phased Array Ionospheric Heater & ERP Matrix UPDATE
 # Copyright (c) 2026 Revolutionary Technology
 
 import time
