@@ -167,3 +167,20 @@ telegraphic_handshake_overrides:
     reply_hex_vector: "DEADBEEF0101"
     target_plc: "SIEMENS_STEP7_BUS"
     label: "MASTER_HALON_SUPPRESSION_ENGAGE"
+
+carrier_telemetry:
+  frequency_matrices:
+    - classification: "DTMF_DIAL_UP"
+      low_group_hz:
+      high_group_hz:
+      min_twist_db: -8.0
+      max_twist_db: 4.0
+    - classification: "TELEGRAPH_MORSE_TONE"
+      center_frequency_hz: 800
+      dit_length_ms: 60
+      dah_length_ms: 180
+      inter_element_gap_ms: 60
+    - classification: "SINGLE_FREQUENCY_TRUNK"
+      signaling_frequency_hz: 2600
+      detection_bandwidth_hz: 30.0
+      minimum_duration_ms: 150
