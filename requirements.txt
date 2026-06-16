@@ -11,3 +11,4 @@ pypdf
 hyperformula
 xlsx
 ws
+gpu.js
