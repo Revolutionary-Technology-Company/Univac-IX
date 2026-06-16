@@ -1,6 +1,9 @@
 #!/bin/bash
 # UNIVAC-IX Master Automation Loop (Updated for Multi-Language Nodes)
 from modules.spatial_tracker import UnivacIXLogisticsTracker
+echo "[*] Spooling BLE Spatial Tracker & Multilateration Engine..."
+python3 src/modules/advanced_bluetooth_spatial_tracker.py &
+BLE_TRACKER_PID=$!
 echo "=== INITIALIZING UNIVAC-IX MAIN SEQUENCE ==="
 
 cleanup_processes() {
