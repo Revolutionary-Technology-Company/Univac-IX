@@ -1,6 +1,6 @@
 ---
 title: "Node 00: The Sovereign SDR Cellular Mesh (0G Network)"
-classification: "TOP SECRET // EXECUTIVE EYES ONLY"
+classification: "TOP SECRET // UNIVAC EYES ONLY"
 target_audience: "Heads of State, Private Island Owners, Corporate Sovereigns"
 ---
 
