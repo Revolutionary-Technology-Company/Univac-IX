@@ -24,5 +24,12 @@ jobs:
       run: |
         npm install hyperformula xlsx
 
-    - name: Execute Light Engine Formula Compilation
+    - name: Execute Light Engine Formula Compilation & Export
       run: node scripts/validate_formulas.js
+
+    - name: Archive and Export JSON Data Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: univac-compiled-ptable-json  # The zip file name on the GitHub Actions panel
+        path: assets/data/compiled_ptable_metadata.json
+        retention-days: 30                  # Automatically cleans up storage after 30 days
