@@ -1,9 +1,9 @@
 ***
 
-### File 3: `node-03-vlf-oceanic-orchestrator.md`
+### File 3: `node-02-vlf-oceanic-orchestrator.md`
 ```markdown
 ---
-title: "Node 03: Planetary VLF & Oceanic Orchestrator"
+title: "Node 02: Planetary VLF & Oceanic Orchestrator"
 classification: "TOP SECRET // EXECUTIVE EYES ONLY"
 target_audience: "Naval Commanders, Private Submersible Owners, Doomsday Planners"
 ---
