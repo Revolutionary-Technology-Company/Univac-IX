@@ -1,4 +1,8 @@
 // src/modules/tusk-trunk/index.js
+const fs = require('fs');
+const path = require('path');
+const yaml = require('js-yaml'); // Standard node YAML engine
+
 const SipStack = require('./sip-stack');
 const AudioEngine = require('./audio-engine');
 const LineTelemetryManager = require('./line-telemetry');
@@ -7,56 +11,53 @@ module.exports = {
   name: 'tuskTrunk',
 
   init(context) {
-    console.log('[Module: TUSK Trunk] Initializing high-fidelity audio engine & telemetry node.');
+    console.log('[Module: TUSK Trunk] Loading configurations from root config.yaml...');
 
-    // 1. Instantiating processing layers
-    const targetProfile = process.env.AUDIO_DSP_PROFILE || 'SENNHEISER';
+    let config = {};
+    try {
+      // Resolve path backwards out of src/modules/tusk-trunk/ up to the root /config.yaml
+      const configPath = path.resolve(__dirname, '../../..', 'config.yaml');
+      const fileContents = fs.readFileSync(configPath, 'utf8');
+      config = yaml.load(fileContents);
+    } catch (e) {
+      console.error('[Module: TUSK Trunk] Failed to read root config.yaml. Falling back to defaults.', e);
+      // Fallback object if file is missing or corrupted
+      config = { telephony: { trunk: { ip: '127.0.0.1', port: 5060 } } };
+    }
+
+    // Extract scoped configurations from the root file
+    const telecomConfig = config.telephony || {};
+    const audioConfig = config.audio_engine || {};
+
+    // 1. Instantiate Audio Engine with YAML definitions
+    const targetProfile = audioConfig.acoustic_profile || 'SENNHEISER';
     const audioEngine = new AudioEngine(targetProfile);
     
+    // Pass the noise suppression floor from config.yaml into the DSP core
+    if (audioConfig.noise_cancellation_threshold) {
+      audioEngine.noiseThreshold = audioConfig.noise_cancellation_threshold;
+    }
+    
+    // 2. Instantiate Telemetry Manager
     const telemetry = new LineTelemetryManager({
-      gatewayIp: process.env.GATEWAY_MANAGEMENT_IP || '192.168.1.200'
+      gatewayIp: telecomConfig.gateway?.ip || '192.168.1.200'
     });
 
-    // 2. Wire hardware telemetry events to central infrastructure
-    telemetry.on('metrics_update', (metrics) => {
-      // Expose metrics universally across Univac-IX nodes
-      if (context.stateManager) {
-        context.stateManager.update('trunk:telemetry', metrics);
-      }
-    });
-
-    telemetry.on('call_start', (data) => {
-      console.log(`[Billing/Timing] Call started for ID: ${data.callerId}`);
-    });
-
-    // 3. Link audio processing pipelines during SIP events
+    // 3. Launch SIP Core bound to your explicit topology
     SipStack.start({
-      ip: process.env.UNIVAC_TRUNK_IP || '192.168.1.100',
-      port: parseInt(process.env.UNIVAC_TRUNK_PORT, 10) || 5060
+      ip: telecomConfig.trunk?.ip || '192.168.1.100',
+      port: telecomConfig.trunk?.port || 5060
     });
 
-    SipStack.events.on('ptt_pressed', (inboundSdpHeaders) => {
-      const detectedCallerId = inboundSdpHeaders?.from?.uri || 'TUSK-Terminal';
-      telemetry.startCallTracking(detectedCallerId);
-    });
-
+    // Handle incoming PTT stream hooks
     SipStack.events.on('audio_data', (rawMuLawBuffer) => {
-      // Step A: Convert the restrictive telecom codec to 16-bit linear PCM space
       const linearPcmBuffer = audioEngine.muLawToPcm(rawMuLawBuffer);
-
-      // Step B: Strip background line hiss, mechanical rumble, and apply equalization curves
       const highFidelityBuffer = audioEngine.applyNoiseCancellation(linearPcmBuffer);
 
-      // Step C: Route the sanitized stream to core system formats
       if (context.router) {
-        // Example distribution mechanisms based on target format requirement:
         context.router.broadcastToRawBuffers(highFidelityBuffer);
         context.router.streamToWebRTC(highFidelityBuffer);
       }
-    });
-
-    SipStack.events.on('ptt_released', () => {
-      telemetry.stopCallTracking();
     });
   }
 };
