@@ -1,115 +1,92 @@
-import { UnivacLightEquationNode } from './modules/light_equation_node.js';
-import { UnivacOpticalNoiseProcessor } from './modules/optical_noise_processor.js';
+/**
+ * Headless Core Broker for Univac-IX Light Engine
+ * Routes raw optical arrays straight to the calculation matrix worker.
+ */
 
-// Instantiate Core Logical Engines
-const equationNode = new UnivacLightEquationNode();
-const noiseProcessor = new UnivacOpticalNoiseProcessor(equationNode);
+const mainframeWorker = new Worker(
+    new URL('./light_worker.js', import.meta.url), 
+    { type: 'module' }
+);
 
-let dataStreamInterval = null;
+// Configuration state targets for the mathematical equations
+let currentTargetState = {
+    element: "Titanium",
+    electrons: 22,
+    charge: 0
+};
 
-// Wait for DOM Elements to render
-window.addEventListener('DOMContentLoaded', async () => {
-    const statusLabel = document.getElementById('engine-status');
-    const btnStream = document.getElementById('btn-toggle-stream');
-
-    // 1. Fetch JSON compiled Excel artifacts right away on load
-    const loadSuccess = await equationNode.initializationPipeline('/assets/data/compiled_ptable_metadata.json');
+// Initialize the computing stack automatically on file execution
+(() => {
+    console.log("[Mainframe Core] Spawning Headless Light Engine Processing Thread...");
     
-    if (loadSuccess) {
-        statusLabel.innerText = "ONLINE (READY)";
-        statusLabel.style.color = "#22c55e";
-        btnStream.disabled = false; // Safely unlock control stream loop actions
-        initializeUIListeners();
-    } else {
-        statusLabel.innerText = "CRITICAL FAILURE (CHECK LOGS)";
-        statusLabel.style.color = "#ef4444";
-    }
-});
+    mainframeWorker.postMessage({
+        action: 'INITIALIZE_MAINFRAME',
+        payload: { jsonUrl: '../../assets/data/compiled_ptable_metadata.json' }
+    });
 
-function initializeUIListeners() {
-    const btnNoise = document.getElementById('btn-capture-noise');
-    const btnStream = document.getElementById('btn-toggle-stream');
-    
-    const txtElement = document.getElementById('input-element');
-    const txtElectrons = document.getElementById('input-electrons');
-    const txtCharge = document.getElementById('input-charge');
+    mainframeWorker.onmessage = (event) => {
+        const { status, data, error } = event.data;
 
-    // Display telemetry DOM pointers
-    const displaySnr = document.getElementById('telemetry-snr');
-    const displayPeak = document.getElementById('telemetry-peak');
-    const displayAtten = document.getElementById('telemetry-attenuation');
-    const displayRow = document.getElementById('telemetry-row');
-    const emitterViewport = document.getElementById('emitter-viewport');
-
-    // Mock hardware signal telemetry feed generator
-    const generateMockHardwareTrack = (vectorLength = 128) => {
-        const sampleBuffer = new Float32Array(vectorLength);
-        const dynamicPhaseShift = Date.now() * 0.005; // Generates a smooth fluid movement matrix over time
-        for(let i = 0; i < vectorLength; i++) {
-            const cleanPhotonWave = Math.sin(i * 0.15 + dynamicPhaseShift) * 45 + 50;
-            const environmentalNoise = Math.random() * 18 + 4; // Simulated baseline hum noise floor
-            sampleBuffer[i] = cleanPhotonWave + environmentalNoise;
+        if (status === 'MAINFRAME_ONLINE') {
+            console.log("✅ [Mainframe Core] Processing thread ready. UI overhead bypassed.");
+            startHighSpeedIngestionLoop();
         }
-        return sampleBuffer;
+
+        if (status === 'COMPUTATION_COMPLETE') {
+            // Output pure telemetry straight to system logs or your outbound WebSocket bridge
+            executeStreamTelemetryOutput(data);
+        }
+
+        if (status === 'MAINFRAME_ERROR') {
+            console.error(`🚨 [Mainframe Core Critical Fault] ${error}`);
+        }
     };
+})();
 
-    // Action A: Sample the Ambient Environment profile
-    btnNoise.addEventListener('click', () => {
-        const backgroundSnapshot = generateMockHardwareTrack();
-        noiseProcessor.calibrateNoiseProfile(backgroundSnapshot);
-        
-        btnNoise.innerText = "Noise Profile Subtracted! 🎯";
-        btnNoise.classList.add('success-state');
-    });
+/**
+ * Updates the active element configuration targeting from background script logic
+ */
+export function reconfigureTargetSubstance(element, electrons, charge) {
+    currentTargetState = { element, electrons, charge };
+}
 
-    // Action B: Toggle Stream Calculus Array processing
-    btnStream.addEventListener('click', () => {
-        if (dataStreamInterval) {
-            // Stop loop sequence
-            clearInterval(dataStreamInterval);
-            dataStreamInterval = null;
-            
-            btnStream.innerText = "Start Optical Stream";
-            btnStream.classList.remove('primary-action');
-            emitterViewport.style.backgroundColor = "#000000";
-            emitterViewport.innerText = "STREAM INACTIVE";
-        } else {
-            btnStream.innerText = "Halt Stream ⏸";
-            btnStream.classList.add('primary-action');
+/**
+ * High-Speed Data Engine Pipeline Loop
+ */
+function startHighSpeedIngestionLoop() {
+    // Zero-delay or high-frequency calculation loop mapping
+    setInterval(() => {
+        const rawTelemetryTrack = captureHardwareInstrumentationTrack();
 
-            // Launch the 33ms execution loop (30Hz real-time frequency processing)
-            dataStreamInterval = setInterval(() => {
-                const liveRawTrackInput = generateMockHardwareTrack();
-                
-                const targetState = {
-                    element: txtElement.value.trim(),
-                    electrons: parseInt(txtElectrons.value, 10) || 0,
-                    charge: parseInt(txtCharge.value, 10) || 0
-                };
+        mainframeWorker.postMessage({
+            action: 'COMPUTE_MATRIX_FRAME',
+            payload: {
+                liveTrack: rawTelemetryTrack,
+                targetState: currentTargetState
+            }
+        });
+    }, 10); // Runs calculation cycles continuously every 10ms
+}
 
-                // Process the streaming signals through the pipeline modules
-                const processedResults = noiseProcessor.processIncomingTrack(liveRawTrackInput, targetState);
+function executeStreamTelemetryOutput(results) {
+    if (results.chemicalContext.error) {
+        console.warn(`[Mainframe Telemetry Warning] ${results.chemicalContext.error}`);
+        return;
+    }
 
-                if (processedResults && !processedResults.chemicalContext.error) {
-                    const ctx = processedResults.chemicalContext;
-                    
-                    // Update Text Outputs
-                    displaySnr.innerText = `${processedResults.telemetry.signalToNoiseRatioDb} dB`;
-                    displayPeak.innerText = `${processedResults.telemetry.peakIntensity} lm`;
-                    displayAtten.innerText = `${processedResults.telemetry.averageAttenuation} dB/km`;
-                    displayRow.innerText = `Row ${ctx.matchedRow || '--'}`;
+    // Pure system data layout print out - completely decoupled from DOM threads
+    console.log(
+        `[METRICS] SNR: ${results.telemetry.signalToNoiseRatioDb}dB | ` +
+        `Peak: ${results.telemetry.peakIntensity}lm | ` +
+        `Color Hex: ${results.chemicalContext.calculatedColorHex}`
+    );
+}
 
-                    // Update dynamic color output straight from your spreadsheet formulas
-                    if (ctx.calculatedColorHex) {
-                        emitterViewport.style.backgroundColor = ctx.calculatedColorHex;
-                        emitterViewport.innerText = `ACTIVE EMISSION: ${ctx.calculatedColorHex.toUpperCase()}`;
-                    }
-                } else if (processedResults && processedResults.chemicalContext.error) {
-                    // Inform operator if an invalid chemical lookup occurred
-                    emitterViewport.style.backgroundColor = "#2d1010";
-                    emitterViewport.innerText = `ERROR: ${processedResults.chemicalContext.error}`;
-                }
-            }, 33);
-        }
-    });
+// Simulated High-Speed Hardware Buffer Intake Generator
+function captureHardwareInstrumentationTrack(length = 128) {
+    const buffer = new Float32Array(length);
+    for (let i = 0; i < length; i++) {
+        buffer[i] = (Math.sin(i * 0.15) * 45 + 50) + (Math.random() * 10);
+    }
+    return buffer;
 }
