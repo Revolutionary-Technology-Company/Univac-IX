@@ -1,3 +1,15 @@
+import sys
+from pathlib import Path
+
+# Step up THREE levels: light_app -> modules -> src -> ROOT
+MODULE_DIR = Path(__file__).resolve().parent
+ROOT_DIR = MODULE_DIR.parent.parent.parent 
+
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+# Now you can safely target your new elemental data:
+PERIODIC_DATA_DIR = ROOT_DIR / "assets" / "data"
 import numpy as np
 
 class UnivacLightProcessor:
