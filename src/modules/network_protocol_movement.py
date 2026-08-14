@@ -25,6 +25,15 @@ except ImportError:
     def process_automotive_trunk_ping(p): 
         return {"STATUS": "FALLBACK_NODE_11", "ERROR": "automotive_goaction.py unavailable"}
 
+try:
+    from fuel_analytics import process_fuel_telemetry_ping
+except ImportError:
+    def process_fuel_telemetry_ping(p): return {"STATUS": "FALLBACK_NODE_12"}
+
+elif asset_type == "fuel_query" or "fuel" in normalized_headers:
+    results = process_fuel_telemetry_ping(raw_payload)
+    results["DISPATCH_CONTEXT"] = "DIAGNOSTIC_NODE_12"
+    return results
 
 # =====================================================================
 # CORE DISPATCHER ENGINE
