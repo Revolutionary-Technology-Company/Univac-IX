@@ -5,7 +5,7 @@ import json
 # =====================================================================
 try:
     # Node 9: Maritime Trunk Line Engine
-    from transfer_protocol.py import process_univac_trunk_ping
+    from transfer_protocol import process_univac_trunk_ping
 except ImportError:
     # Fallback simulation if Node 9 hasn't been written to an independent file yet
     def process_univac_trunk_ping(p): 
