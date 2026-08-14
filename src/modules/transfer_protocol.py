@@ -1,143 +1,92 @@
-import math
-import time
-import numpy as np
-from numba import njit
+import json
 
 # =====================================================================
-# CORE ENGINE: NUMBA-ACCELERATED HYDRODYNAMIC & TIDAL VECTOR PROJECTOR
+# PIPELINE ATTACHMENTS: IMPORT REPOSITORY NODE LIBRARIES
 # =====================================================================
-@njit(fastmath=True, parallel=False)
-def project_dead_reckoning_core(lat1_deg, lon1_deg, speed_knots, heading_deg, 
-                                tide_speed_knots, tide_dir_deg, squat_penalty, delta_t_hours):
-    """
-    Executes high-precision spherical kinematic projection.
-    Integrates tidal drift vectors and shallow-water squat hulls.
-    """
-    earth_radius_nm = 3440.065
-    
-    # 1. Apply Squat Penality to Motor Speed (Hydrodynamic drag constraint)
-    effective_speed = speed_knots * (1.0 - squat_penalty)
-    if effective_speed < 0.0:
-        effective_speed = 0.0
-        
-    # 2. Resolve Ship Velocity Components (Nautical Miles per Hour)
-    heading_rad = math.radians(heading_deg)
-    v_ship_x = effective_speed * math.sin(heading_rad)
-    v_ship_y = effective_speed * math.cos(heading_rad)
-    
-    # 3. Resolve Ocean Tidal Vector Components
-    tide_rad = math.radians(tide_dir_deg)
-    v_tide_x = tide_speed_knots * math.sin(tide_rad)
-    v_tide_y = tide_speed_knots * math.cos(tide_rad)
-    
-    # 4. Synthesize Total Coordinated Velocity Vector
-    v_total_x = v_ship_x + v_total_x_offset_stub(v_tide_x)
-    v_total_y = v_ship_y + v_tide_y
-    
-    total_speed = math.sqrt(v_total_x**2 + v_total_y**2)
-    track_bearing_rad = math.atan2(v_total_x, v_total_y)
-    
-    # 5. Project Spherical Earth Trajectory (Haversine Inverse)
-    distance_nm = total_speed * delta_t_hours
-    angular_dist = distance_nm / earth_radius_nm
-    
-    lat1 = math.radians(lat1_deg)
-    lon1 = math.radians(lon1_deg)
-    
-    lat2 = math.asin(math.sin(lat1) * math.cos(angular_dist) +
-                     math.cos(lat1) * math.sin(angular_dist) * math.cos(track_bearing_rad))
-    
-    lon2 = lon1 + math.atan2(math.sin(track_bearing_rad) * math.sin(angular_dist) * math.cos(lat1),
-                             math.cos(angular_dist) - math.sin(lat1) * math.sin(lat2))
-    
-    return math.degrees(lat2), math.degrees(lon2)
+try:
+    # Node 9: Maritime Trunk Line Engine
+    from transfer_protocol.py import process_univac_trunk_ping
+except ImportError:
+    # Fallback simulation if Node 9 hasn't been written to an independent file yet
+    def process_univac_trunk_ping(p): 
+        return {"STATUS": "NOMINAL_NODE_9", "DATA": "Processed via Maritime Hub Layer"}
 
-@njit(fastmath=True)
-def v_total_x_offset_stub(v_tide_x):
-    return v_tide_x
+try:
+    # Node 10: Aero-Kinematic Elevation Module
+    from flight_data_height import process_elevation_trunk_ping
+except ImportError:
+    def process_elevation_trunk_ping(p): 
+        return {"STATUS": "FALLBACK_NODE_10", "ERROR": "flight_data_height.py unavailable"}
+
+try:
+    # Node 11: Terrestrial Automotive Tracking Engine
+    from automotive_goaction import process_automotive_trunk_ping
+except ImportError:
+    def process_automotive_trunk_ping(p): 
+        return {"STATUS": "FALLBACK_NODE_11", "ERROR": "automotive_goaction.py unavailable"}
+
 
 # =====================================================================
-# SUBSYSTEM: HYDRODYNAMIC SQUAT & TIDAL LOOKUP ENGINE (AEGIS INTERMEDIARY)
+# CORE DISPATCHER ENGINE
 # =====================================================================
-def get_environmental_corrections(latitude, longitude):
+def dispatch_univac_request(request_headers, raw_payload):
     """
-    Simulates real-time GIS / Oceanographic lookups for tidal drift 
-    and shallow-water squat factors based on current coordinates.
+    Inspects transaction headers for explicit classification strings.
+    Routes raw telemetry frames directly to specialized computing fabric nodes.
     """
-    # Dynamic tidal profile generation (Simulating Harmonic Superposition)
-    current_hour = (time.time() / 3600) % 12.42  # M2 Tidal Cycle Period
-    tide_phase = (current_hour / 12.42) * 2 * math.pi
+    # 1. Normalize header metadata fields to safeguard against case mismatches
+    normalized_headers = {str(k).lower(): str(v).lower() for k, v in request_headers.items()}
     
-    # Simulate a 2.5-knot tidal current oscillating Northeast/Southwest
-    tide_speed = abs(2.5 * math.sin(tide_phase))
-    tide_direction = 45.0 if math.sin(tide_phase) >= 0 else 225.0
+    # 2. Extract classification key from known protocol locations
+    asset_type = normalized_headers.get("asset-type") or normalized_headers.get("header")
     
-    # Calculate squat penalty (shallow water hull drag; 0.0 = deep ocean, 0.25 = high drag)
-    # Simulates near-shore detection based on coordinate profiles
-    is_near_coast = (int(abs(latitude)) % 2 == 0) 
-    squat_penalty = 0.15 if is_near_coast else 0.01
-    
-    return tide_speed, tide_direction, squat_penalty
-
-def resolve_port_ip_geolocation(ip_address):
-    """
-    Mock interface converting incoming source port connection IPs 
-    into absolute anchor coordinates. Replacement for MaxMind GeoIP2.
-    """
-    # Return tactical baseline coordinates (e.g., Hamburg Port Entrance)
-    return 53.8655, 8.7094
-
-# =====================================================================
-# SERVER RUNTIME CORE: INCOMING PAYLOAD PROCESSOR
-# =====================================================================
-def process_univac_trunk_ping(payload):
-    """
-    Processes the raw telemetry string sent by legacy cruise liner servers.
-    Format Expected: "PORT_IP,MOTOR_SPEED,TURN_ANGLE,DELTA_T"
-    """
-    try:
-        # Ingest incoming telemetry trunk
-        ip_addr, raw_speed, raw_angle, delta_t = payload.strip().split(',')
+    # 3. ROUTE A: MARITIME ROUTER (Node 9)
+    if asset_type == "vessel":
+        print("[TRANSFER PROTOCOL]: Detected 'vessel' signature. Routing to Node 9...")
+        results = process_univac_trunk_ping(raw_payload)
+        results["DISPATCH_CONTEXT"] = "MARITIME_NODE_9"
+        return results
         
-        # Parse inputs to floating-point metrics
-        speed_knots = float(raw_speed)
-        heading_deg = float(raw_angle) % 360.0
-        delta_t_hours = float(delta_t)
+    # 4. ROUTE B: AVIATION ENGINE (Node 10)
+    elif asset_type == "aircraft":
+        print("[TRANSFER PROTOCOL]: Detected 'aircraft' signature. Routing to Node 10...")
+        results = process_elevation_trunk_ping(raw_payload)
+        results["DISPATCH_CONTEXT"] = "AERO_NODE_10"
+        return results
         
-        # Step 1: Extract baseline location via IP geolocation anchor
-        start_lat, start_lon = resolve_port_ip_geolocation(ip_addr)
+    # 5. ROUTE C: AUTOMOTIVE WHEEL-KINEMATICS (Node 11)
+    elif asset_type == "automotive":
+        print("[TRANSFER PROTOCOL]: Detected 'automotive' signature. Routing to Node 11...")
+        results = process_automotive_trunk_ping(raw_payload)
+        results["DISPATCH_CONTEXT"] = "TERRESTRIAL_NODE_11"
+        return results
         
-        # Step 2: Fetch ocean tidal corrections & hydrodynamic squat multipliers
-        tide_speed, tide_dir, squat_penalty = get_environmental_corrections(start_lat, start_lon)
-        
-        # Step 3: Run the accelerated multi-core kinematic projection loop
-        target_lat, target_lon = project_dead_reckoning_core(
-            start_lat, start_lon, speed_knots, heading_deg,
-            tide_speed, tide_dir, squat_penalty, delta_t_hours
-        )
-        
-        # Return structured data compliant with legacy UNIVAC FIELDATA terminal outputs
+    # 6. FAULT ISOLATION: MALFORMED PATH
+    else:
+        print(f"[TRANSFER PROTOCOL ALERT]: Corrupted or unmapped asset target: '{asset_type}'")
         return {
-            "STATUS": "NOMINAL_NODE_9",
-            "INITIAL_ANCHOR": f"{start_lat:.4f}, {start_lon:.4f}",
-            "TIDAL_DRIFT_VECTOR": f"{tide_speed:.2f} kts @ {tide_dir}°",
-            "HULL_SQUAT_COEFFICIENT": f"{squat_penalty * 100:.1f}% Drag",
-            "RESULTING_GPS": f"{target_lat:.6f}, {target_lon:.6f}"
+            "STATUS": "CRITICAL_ROUTING_MISMATCH",
+            "ERROR": f"Asset verification type '{asset_type}' is unrecognized. Connection dropped."
         }
-        
-    except Exception as e:
-        return {"STATUS": "CRITICAL_BREAKDOWN", "ERROR": str(e)}
+
 
 # =====================================================================
-# EXECUTION HARNESS
+# LOCAL TELEMETRY HARNESS VERIFICATION
 # =====================================================================
 if __name__ == "__main__":
-    # Simulating an inbound server ping from an active cruise ship trunk line
-    # Format: Remote Port IP, Motor Speed (Knots), Turn Angle/Heading (Degrees), Time Elapsed (Hours)
-    incoming_trunk_data = "192.168.42.9,22.4,112.5,0.5"
+    print("UNIVAC CORE DISPATCHER OS -- Simulating Cross-Domain Traffic...\n")
     
-    print("UNIVAC IX -- Initializing Telemetry Conversion Bridge...")
-    telemetry_output = process_univac_trunk_ping(incoming_trunk_data)
+    # Validation Loop 1: Testing the Aircraft Request Stream
+    mock_aircraft_headers = {"Asset-Type": "aircraft", "Connection": "Keep-Alive"}
+    mock_aircraft_payload = "12000.0,78.5,3.2,090.0,15.0,270.0,60.0"
     
-    for key, val in telemetry_output.items():
-        print(f"[{key}]: {val}")
+    air_output = dispatch_univac_request(mock_aircraft_headers, mock_aircraft_payload)
+    print(f"Result A: {json.dumps(air_output, indent=2)}\n")
+    print("-" * 65 + "\n")
+    
+    # Validation Loop 2: Testing the Automotive Request Stream
+    mock_auto_headers = {"Header": "automotive", "User-Agent": "Univac-Car-v1.1"}
+    mock_auto_payload = "1100.0,28.0,4.5,0.80,90.0,15.0"
+    
+    auto_output = dispatch_univac_request(mock_auto_headers, mock_auto_payload)
+    print(f"Result B: {json.dumps(auto_output, indent=2)}\n")
