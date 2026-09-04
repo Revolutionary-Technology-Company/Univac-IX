@@ -1,0 +1,19 @@
+{
+  "tactical_hardware_allocation": {
+    "target_node_id": "TACTICAL_NODE_8120",
+    "processor_interface_bus": "PCI_EXPRESS_GEN4",
+    "telemetry_sampling_frequency_hz": 100.0,
+    "local_cache_retention_days": 90
+  },
+  "operational_safety_envelopes": {
+    "maximum_threat_score_baseline": 100.0,
+    "critical_terrain_complexity_limit": 5.0,
+    "min_required_units_combined_arms": 1,
+    "emergency_evac_trigger_bitmask": "0x00000100"
+  },
+  "inter_agency_sync": {
+    "primary_cloud_relay": "https://univac.online",
+    "fallback_local_ip": "127.0.0.1",
+    "watchdog_cycle_interval_ms": 100
+  }
+}
