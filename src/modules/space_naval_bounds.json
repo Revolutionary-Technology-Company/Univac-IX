@@ -1,0 +1,19 @@
+{
+  "theater_hardware_allocation": {
+    "target_node_id": "SPACE_NAVAL_NODE_8120",
+    "uplink_bus_interface": "PCI_EXPRESS_GEN4",
+    "telemetry_sampling_frequency_hz": 500.0,
+    "local_cache_retention_days": 180
+  },
+  "ballistic_safety_envelopes": {
+    "karman_line_altitude_km": 100.0,
+    "max_authorized_fleet_vls_cells": 96,
+    "navstar_clock_sync_precision_ns": 1.0,
+    "hypersonic_intercept_trigger_bitmask": "0x00008000"
+  },
+  "inter_agency_sync": {
+    "primary_cloud_relay": "https://univac.online",
+    "fallback_local_ip": "127.0.0.1",
+    "watchdog_cycle_interval_ms": 100
+  }
+}
