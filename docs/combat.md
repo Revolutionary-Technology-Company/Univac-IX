@@ -1,3 +1,24 @@
 An advanced battlefield tactical module designed for the **UNIVAC IX Quantum Mesh Core** must operate as a deterministic, high-throughput coordination engine. To synthesize historical mobile infantry doctrines, heavy engineering assets, multi-layered anti-aircraft rings, and urban block-clearing tactics, the code must dynamically calculate mission success paths regardless of specific unit availability.
 
 By deploying **Numba-accelerated combinatorial optimization loops**, the system abstracts available personnel, vehicles, and aviation platforms into pure physical vectors (Firepower, Mass, Mobility, Shielding, and Electronic Spectrum). This ensures the tactical node generates winning operational matrices locally at the edge, maintaining total combined-arms dominance even during a complete communication blackout from `https://univac.online`.
+
+* * * * *
+
+1\. Unified Combined-Arms Tactical Topology
+
+```
+ [ Local Inventory Inputs ] ──► [ Asset Profile Vector Mapping ] ──► (Dynamic Resource Allocation)
+ (Troops, Armor, Aviation)         (Mass, Mobility, Firepower, Range)
+                                                  │
+                                                  ▼
+                                 [ Numba Combined-Arms Kernel ]
+                             (Microsecond Tactical Matrix Solver)
+                                                  │
+                ┌─────────────────────────────────┼─────────────────────────────────┐
+                ▼                                 ▼                                 ▼
+   [ Kinetic Engagement Overrides ]    [ Air Defense Preemption ]        [ Urban Barrier Breaching ]
+  (Optimal Firepower Handoffs)        (Selsyn Lead Trajectories)       (Hydraulic/Pneumatic PTO)
+
+```
+
+* * * * *
